@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "long-short-tracker",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-08-02",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist/client"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "long-short-tracker-db",
+      "database_id": "0bf8d167-07e0-4b9e-b56b-57d62540d71a",
+      "migrations_dir": "./drizzle"
+    }
+  ],
+  "vars": {
+    "PUBLIC_SITE_URL": "https://long-short-tracker.master-van1995.workers.dev"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
