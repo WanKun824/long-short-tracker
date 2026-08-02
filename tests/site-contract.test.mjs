@@ -27,9 +27,9 @@ test("includes Chinese research, subscription and disclosure experiences", async
     readFile(new URL("app/layout.tsx", root), "utf8"),
   ]);
   assert.match(page, /美国机构投资者/);
-  assert.match(page, /13F数据库/);
+  assert.match(page, /LONG \/ SHORT TRACKER/);
   assert.match(page, /持仓数据库/);
-  assert.doesNotMatch(page, /13F机构持仓/);
+  assert.doesNotMatch(page, /13F机构持仓|13F数据库/);
   assert.match(page, /订阅持仓变动/);
   assert.match(page, /13F数据范围与限制/);
   assert.doesNotMatch(page, /穿过持仓表|看见投资人的判断|不是答案|延迟的X光片/);

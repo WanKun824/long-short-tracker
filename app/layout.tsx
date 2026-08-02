@@ -28,19 +28,19 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
   metadataBase: new URL(`${protocol}://${host}`),
   title: {
-    default: "13F数据库｜美国机构投资者持仓",
-    template: "%s｜13F数据库",
+    default: "LONG / SHORT TRACKER | Institutional 13F Data",
+    template: "%s | LONG / SHORT TRACKER",
   },
   description: "美国机构投资者13F披露持仓、组合集中度、基金经理资料与更新提醒。",
   openGraph: {
-    title: "13F数据库｜美国机构投资者持仓",
+    title: "LONG / SHORT TRACKER | Institutional 13F Data",
     description: "8家代表性投资机构的完整13F持仓、组合数据与中文资料。",
     type: "website",
     locale: "zh_CN",
   },
   twitter: {
     card: "summary_large_image",
-    title: "13F数据库｜美国机构投资者持仓",
+    title: "LONG / SHORT TRACKER | Institutional 13F Data",
     description: "8家代表性投资机构的完整13F持仓、组合数据与中文资料。",
   },
   };

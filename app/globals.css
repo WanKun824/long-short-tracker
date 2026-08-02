@@ -127,11 +127,12 @@ button {
 }
 
 .brand strong {
-  font-family: var(--font-serif-cn), serif;
-  font-size: 35px;
+  font-family: var(--font-editorial), Georgia, serif;
+  font-size: 30px;
   line-height: 1;
   font-weight: 900;
-  letter-spacing: .05em;
+  letter-spacing: .025em;
+  white-space: nowrap;
 }
 
 .brand em {
@@ -1844,7 +1845,7 @@ button {
   }
 
   .brand strong {
-    font-size: 31px;
+    font-size: 18px;
   }
 
   .brand em {

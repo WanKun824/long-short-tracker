@@ -85,7 +85,7 @@ export function buildAlertEmail({
   const unsubscribeUrl = `${siteUrl}/api/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
   const safeFundName = escapeHtml(fundName);
   const html = `<div style="max-width:640px;margin:auto;padding:32px;font-family:Arial,'Noto Sans SC',sans-serif;background:#f5f1e8;color:#11110f">
-    <p style="font-size:12px;letter-spacing:.12em;color:#9b2f24">13F数据库 · 申报更新</p>
+    <p style="font-size:12px;letter-spacing:.12em;color:#9b2f24">LONG / SHORT TRACKER · 申报更新</p>
     <h1 style="font-size:28px;margin:8px 0">${safeFundName}发布新持仓</h1>
     <p style="color:#5f5b52">${escapeHtml(period)}，申报日 ${escapeHtml(filedAt)}。以下为相对上一期公开13F的权重变化。</p>
     ${changeList("新进仓位", changes.added, "up")}
@@ -98,7 +98,7 @@ export function buildAlertEmail({
   </div>`;
 
   return {
-    subject: `【13F数据库】${fundName} ${period} 申报更新`,
+    subject: `[LONG / SHORT TRACKER] ${fundName} ${period} 申报更新`,
     html,
   };
 }

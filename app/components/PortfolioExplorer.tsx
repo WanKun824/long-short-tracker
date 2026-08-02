@@ -366,18 +366,18 @@ export function PortfolioExplorer() {
   return (
     <main>
       <div className="market-strip" aria-label="数据状态">
-        <span><i /> 13F数据库 · SEC公开申报数据</span>
+        <span><i /> LONG / SHORT TRACKER · SEC公开申报数据</span>
         <span>最新完整季度 2026 Q1</span>
         <span>Q2申报截止 2026-08-14</span>
         <span>资料源 SEC EDGAR</span>
       </div>
 
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="13F数据库首页">
+        <a className="brand" href="#top" aria-label="LONG / SHORT TRACKER首页">
           <span className="brand-mark">13F</span>
           <span>
-            <strong>13F数据库</strong>
-            <em>13F DATABASE</em>
+            <strong>LONG / SHORT TRACKER</strong>
+            <em>INSTITUTIONAL 13F DATA</em>
           </span>
         </a>
         <nav aria-label="主导航">
@@ -390,7 +390,7 @@ export function PortfolioExplorer() {
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <div className="eyebrow"><span>13F DATABASE</span> · 中文数据平台</div>
+          <div className="eyebrow"><span>INSTITUTIONAL POSITION DATA</span> · 中文数据平台</div>
           <h1>美国机构投资者<br /><span>持仓数据库</span></h1>
           <p>
             跟踪8家代表性投资机构的SEC 13F申报，提供完整持仓、持仓权重、组合集中度、基金经理资料与邮件更新提醒。
@@ -617,7 +617,7 @@ export function PortfolioExplorer() {
           <h2>订阅13F持仓更新</h2>
           <p>新13F出现时，发送新建仓、增减持、清仓与集中度变化的中文摘要。</p>
           <div className="alert-preview">
-            <div className="alert-preview__head"><span>13F数据库 · 更新摘要</span><em>示例</em></div>
+            <div className="alert-preview__head"><span>LONG / SHORT TRACKER · 更新摘要</span><em>示例</em></div>
             <strong>伯克希尔提交最新13F</strong>
             <ul>
               <li><span>新建仓</span><b>2项</b></li>
@@ -676,7 +676,7 @@ export function PortfolioExplorer() {
               <li><strong>注册Resend</strong><span>使用邮箱登录Resend，在Domains页面添加你拥有的域名。</span></li>
               <li><strong>验证发件域名</strong><span>建议使用updates.你的域名这类专用子域名；把Resend给出的DKIM、SPF等DNS记录原样添加，等待状态变为Verified。</span></li>
               <li><strong>创建API Key</strong><span>在API Keys页面新建“13F-Holdings-Production”，选择Sending access和已验证域名；密钥只显示一次，请立即保存。</span></li>
-              <li><strong>写入托管设置</strong><span>添加秘密变量RESEND_API_KEY；再添加ALERT_FROM_EMAIL，例如“13F数据库 &lt;alerts@你的域名&gt;”。不要把密钥发送到聊天。</span></li>
+              <li><strong>写入托管设置</strong><span>添加秘密变量RESEND_API_KEY；再添加ALERT_FROM_EMAIL，例如“LONG / SHORT TRACKER &lt;alerts@你的域名&gt;”。不要把密钥发送到聊天。</span></li>
             </ol>
             <p>
               <a href="https://resend.com/docs/dashboard/domains/introduction" target="_blank" rel="noreferrer">Resend域名验证指南 ↗</a>
@@ -689,7 +689,7 @@ export function PortfolioExplorer() {
       <footer className="site-footer">
         <div className="footer-brand">
           <span className="brand-mark">13F</span>
-          <div><strong>13F数据库</strong><p>美国机构投资者持仓数据</p></div>
+          <div><strong>LONG / SHORT TRACKER</strong><p>美国机构投资者持仓数据</p></div>
         </div>
         <div className="footer-note">
           <strong>免责声明</strong>
