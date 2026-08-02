@@ -1,4 +1,4 @@
-import { ensureDbSchema, getD1 } from "../../../db";
+import { ensureDbSchema, getD1, getRuntimeEnv } from "../../../db";
 import { funds } from "../../data/funds";
 
 const validFundIds = new Set<string>(funds.map((fund) => fund.id));
@@ -31,8 +31,13 @@ export async function POST(request: Request) {
       .bind(email, JSON.stringify(fundIds), token)
       .run();
 
+    const runtime = getRuntimeEnv();
+    const emailReady = Boolean(runtime.RESEND_API_KEY && runtime.ALERT_FROM_EMAIL && runtime.PUBLIC_SITE_URL);
     return Response.json({
-      message: "订阅已保存。新申报出现时，我们会按你选择的机构发送中文摘要。",
+      message: emailReady
+        ? "订阅已保存。新申报出现时，我们会按你选择的机构发送中文摘要。"
+        : "订阅偏好已保存。邮件投递通道尚在配置，启用后会按你的选择发送中文摘要。",
+      emailReady,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "订阅服务暂不可用，请稍后重试。";
