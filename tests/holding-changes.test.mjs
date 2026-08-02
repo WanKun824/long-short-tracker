@@ -54,7 +54,7 @@ test("builds a safe Chinese alert with disclosure and unsubscribe link", () => {
     unsubscribeToken: "a/b",
   });
 
-  assert.match(email.subject, /持仓镜.*Scion & Partners.*2026 Q2/);
+  assert.match(email.subject, /13F机构持仓.*Scion & Partners.*2026 Q2/);
   assert.match(email.html, /新进仓位/);
   assert.match(email.html, /不构成投资建议/);
   assert.match(email.html, /https:\/\/example\.com\/api\/unsubscribe\?token=a%2Fb/);

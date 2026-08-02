@@ -128,10 +128,10 @@ button {
 
 .brand strong {
   font-family: var(--font-serif-cn), serif;
-  font-size: 42px;
+  font-size: 35px;
   line-height: 1;
   font-weight: 900;
-  letter-spacing: .14em;
+  letter-spacing: .05em;
 }
 
 .brand em {

@@ -28,20 +28,20 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
   metadataBase: new URL(`${protocol}://${host}`),
   title: {
-    default: "持仓镜｜全球顶级投资机构13F持仓追踪",
-    template: "%s｜持仓镜",
+    default: "13F机构持仓｜美国机构投资者申报数据库",
+    template: "%s｜13F机构持仓",
   },
-  description: "用中文看懂全球顶级资本的最新持仓、投资方法与风险。",
+  description: "美国机构投资者13F披露持仓、组合集中度、基金经理资料与更新提醒。",
   openGraph: {
-    title: "持仓镜｜看懂全球顶级资本的每一次下注",
-    description: "八家代表性投资机构，完整13F持仓与中文策略解读。",
+    title: "13F机构持仓｜美国机构投资者申报数据库",
+    description: "8家代表性投资机构的完整13F持仓、组合数据与中文资料。",
     type: "website",
     locale: "zh_CN",
   },
   twitter: {
     card: "summary_large_image",
-    title: "持仓镜｜看懂全球顶级资本的每一次下注",
-    description: "八家代表性投资机构，完整13F持仓与中文策略解读。",
+    title: "13F机构持仓｜美国机构投资者申报数据库",
+    description: "8家代表性投资机构的完整13F持仓、组合数据与中文资料。",
   },
   };
 }

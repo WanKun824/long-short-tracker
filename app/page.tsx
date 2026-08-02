@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { PortfolioExplorer } from "./components/PortfolioExplorer";
 
 export const metadata: Metadata = {
-  title: "持仓镜｜全球顶级投资机构13F持仓追踪",
-  description: "面向中国投资者的机构持仓研究网站：用中文看懂伯克希尔、Scion、Duquesne、TCI、Baupost、潘兴广场等机构的13F持仓与投资方法。",
+  title: "13F机构持仓｜美国机构投资者申报数据库",
+  description: "面向中文用户的美国机构投资者13F数据库，提供完整披露持仓、持仓权重、组合集中度、基金经理资料与申报更新提醒。",
 };
 
 export default function Home() {

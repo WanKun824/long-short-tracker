@@ -366,18 +366,18 @@ export function PortfolioExplorer() {
   return (
     <main>
       <div className="market-strip" aria-label="数据状态">
-        <span><i /> 持仓镜 · 中文机构持仓研究</span>
+        <span><i /> 13F机构持仓 · SEC公开申报数据</span>
         <span>最新完整季度 2026 Q1</span>
         <span>Q2申报截止 2026-08-14</span>
         <span>资料源 SEC EDGAR</span>
       </div>
 
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="持仓镜首页">
-          <span className="brand-mark">持</span>
+        <a className="brand" href="#top" aria-label="13F机构持仓首页">
+          <span className="brand-mark">13F</span>
           <span>
-            <strong>持仓镜</strong>
-            <em>HOLDINGS LENS</em>
+            <strong>13F机构持仓</strong>
+            <em>INSTITUTIONAL HOLDINGS</em>
           </span>
         </a>
         <nav aria-label="主导航">
@@ -390,14 +390,14 @@ export function PortfolioExplorer() {
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <div className="eyebrow"><span>THE HOLDINGS EDITION</span> · 面向中国读者</div>
-          <h1>穿过持仓表，<br />看见投资人的<span>判断。</span></h1>
+          <div className="eyebrow"><span>13F INSTITUTIONAL HOLDINGS</span> · 中文数据库</div>
+          <h1>美国机构投资者<br /><span>13F持仓数据库</span></h1>
           <p>
-            公开持仓从来不是答案，而是一份带有时间差的证词。我们用中文梳理八家代表性机构的人物、方法、仓位与风险，让每一个数字都回到它应有的语境里。
+            跟踪8家代表性投资机构的SEC 13F申报，提供完整持仓、持仓权重、组合集中度、基金经理资料与邮件更新提醒。
           </p>
           <div className="hero-actions">
-            <a className="primary-button" href="#institutions">浏览机构持仓 <span>↘</span></a>
-            <a className="text-button" href="#methodology">13F应该怎么看？</a>
+            <a className="primary-button" href="#institutions">查看机构持仓 <span>↘</span></a>
+            <a className="text-button" href="#methodology">数据范围与限制</a>
           </div>
           <div className="hero-metrics">
             <div><strong>8</strong><span>家代表性机构</span></div>
@@ -417,8 +417,8 @@ export function PortfolioExplorer() {
             <small>最近检查：{formatCheckedAt(serviceStatus?.lastRefreshAt ?? null)}</small>
           </div>
           <div className="hero-subscribe__kicker"><i /> 每6小时检查公开申报</div>
-          <h2>下一次持仓变化，<br />直接送到你的邮箱。</h2>
-          <p>新建仓、增减持、清仓和集中度变化，用一封中文摘要说清楚。</p>
+          <h2>订阅13F申报更新</h2>
+          <p>出现新申报时，按所选机构发送新建仓、增减持、清仓和集中度变化摘要。</p>
           <label className="hero-email-field">
             <span className="sr-only">邮箱地址</span>
             <input
@@ -459,9 +459,9 @@ export function PortfolioExplorer() {
       <section className="institutions-section" id="institutions">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">INSTITUTION WATCHLIST</span>
-            <h2>机构持仓观察名单</h2>
-            <p>按机构、经理、风格或股票代码检索；打开卡片可查看全部披露持仓。</p>
+            <span className="eyebrow">TRACKED INSTITUTIONS</span>
+            <h2>机构列表</h2>
+            <p>按机构、基金经理、策略或股票代码检索，打开卡片查看全部披露持仓。</p>
           </div>
           <div className="search-box">
             <span aria-hidden="true">⌕</span>
@@ -557,9 +557,9 @@ export function PortfolioExplorer() {
       <section className="compare-section" id="compare">
         <div className="section-heading section-heading--inverse">
           <div>
-            <span className="eyebrow">STRATEGY MAP</span>
-            <h2>同样是“名家持仓”，底层方法完全不同</h2>
-            <p>横向比较组合集中度与披露持仓数量，先识别策略，再判断某一笔交易的意义。</p>
+            <span className="eyebrow">PORTFOLIO COMPARISON</span>
+            <h2>机构策略与组合集中度对比</h2>
+            <p>比较各机构的核心策略、前五大持仓占比和披露持仓数量。</p>
           </div>
           <div className="comparison-key">
             <span><i className="key-dot key-dot--mint" /> 前五集中度</span>
@@ -586,8 +586,8 @@ export function PortfolioExplorer() {
           </div>
 
           <aside className="reading-guide">
-            <span className="eyebrow">快速理解</span>
-            <h3>从“可模仿”到“不可照抄”</h3>
+            <span className="eyebrow">使用说明</span>
+            <h3>13F信息使用要点</h3>
             <ol>
               <li><b>伯克希尔</b><span>股票逻辑最适合长期研究，但13F不包含其经营业务。</span></li>
               <li><b>TCI／潘兴</b><span>集中持仓容易理解，股东行动和场外对冲需要补充研究。</span></li>
@@ -600,8 +600,8 @@ export function PortfolioExplorer() {
 
       <section className="methodology-section" id="methodology">
         <div className="methodology-intro">
-          <span className="eyebrow">HOW TO READ 13F</span>
-          <h2>13F是一张延迟的X光片，<br />不是完整交易账户。</h2>
+          <span className="eyebrow">13F DATA LIMITATIONS</span>
+          <h2>13F数据范围与限制</h2>
         </div>
         <div className="methodology-grid">
           <article><span>01</span><h3>有时间差</h3><p>机构最晚可在季度结束后45天申报。你看到的仓位，可能已经被调整。</p></article>
@@ -613,11 +613,11 @@ export function PortfolioExplorer() {
 
       <section className="subscribe-section" id="subscribe">
         <div className="subscribe-copy">
-          <span className="eyebrow">PORTFOLIO ALERTS</span>
-          <h2>不必每天刷新，<br />持仓变化主动找你。</h2>
-          <p>新13F或重大公开变动出现时，发送中文摘要：新建仓、增减持、清仓与集中度变化。</p>
+          <span className="eyebrow">EMAIL ALERTS</span>
+          <h2>订阅13F持仓更新</h2>
+          <p>新13F出现时，发送新建仓、增减持、清仓与集中度变化的中文摘要。</p>
           <div className="alert-preview">
-            <div className="alert-preview__head"><span>持仓镜 · 变动快报</span><em>示例</em></div>
+            <div className="alert-preview__head"><span>13F机构持仓 · 更新摘要</span><em>示例</em></div>
             <strong>伯克希尔提交最新13F</strong>
             <ul>
               <li><span>新建仓</span><b>2项</b></li>
@@ -675,8 +675,8 @@ export function PortfolioExplorer() {
             <ol>
               <li><strong>注册Resend</strong><span>使用邮箱登录Resend，在Domains页面添加你拥有的域名。</span></li>
               <li><strong>验证发件域名</strong><span>建议使用updates.你的域名这类专用子域名；把Resend给出的DKIM、SPF等DNS记录原样添加，等待状态变为Verified。</span></li>
-              <li><strong>创建API Key</strong><span>在API Keys页面新建“持仓镜-Production”，选择Sending access和已验证域名；密钥只显示一次，请立即保存。</span></li>
-              <li><strong>写入托管设置</strong><span>添加秘密变量RESEND_API_KEY；再添加ALERT_FROM_EMAIL，例如“持仓镜 &lt;alerts@你的域名&gt;”。不要把密钥发送到聊天。</span></li>
+              <li><strong>创建API Key</strong><span>在API Keys页面新建“13F-Holdings-Production”，选择Sending access和已验证域名；密钥只显示一次，请立即保存。</span></li>
+              <li><strong>写入托管设置</strong><span>添加秘密变量RESEND_API_KEY；再添加ALERT_FROM_EMAIL，例如“13F机构持仓 &lt;alerts@你的域名&gt;”。不要把密钥发送到聊天。</span></li>
             </ol>
             <p>
               <a href="https://resend.com/docs/dashboard/domains/introduction" target="_blank" rel="noreferrer">Resend域名验证指南 ↗</a>
@@ -688,8 +688,8 @@ export function PortfolioExplorer() {
 
       <footer className="site-footer">
         <div className="footer-brand">
-          <span className="brand-mark">持</span>
-          <div><strong>持仓镜</strong><p>让机构持仓研究更清晰、更诚实。</p></div>
+          <span className="brand-mark">13F</span>
+          <div><strong>13F机构持仓</strong><p>美国机构投资者13F申报数据库</p></div>
         </div>
         <div className="footer-note">
           <strong>免责声明</strong>
