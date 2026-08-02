@@ -8,6 +8,7 @@ type RuntimeEnv = {
   ALERT_FROM_EMAIL?: string;
   PUBLIC_SITE_URL?: string;
   REFRESH_SECRET?: string;
+  ADMIN_EMAIL?: string;
 };
 
 export function getRuntimeEnv() {
