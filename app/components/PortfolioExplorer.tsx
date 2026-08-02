@@ -701,7 +701,12 @@ export function PortfolioExplorer() {
           <a href="#subscribe">订阅提醒</a>
         </div>
         <div className="photo-credit">
-          人物图片来源：机构官网、Wikimedia Commons及公开人物资料页；仅用于编辑性人物识别。
+          人物图片来源：机构官网、Wikimedia Commons及公开人物资料页，仅用于编辑性人物识别。Chris Hohn照片：
+          <a href="https://commons.wikimedia.org/wiki/File:Chris_Hohn_GFSS_2023.jpg" target="_blank" rel="noreferrer">
+            Simon Walker / No 10 Downing Street，CC BY 2.0
+          </a>
+          ；Seth Klarman照片：
+          <a href="https://www.baupost.com/Team/Seth-A-Klarman" target="_blank" rel="noreferrer">The Baupost Group</a>。
         </div>
       </footer>
 

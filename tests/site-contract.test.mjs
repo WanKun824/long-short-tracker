@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
@@ -16,10 +16,12 @@ test("ships all eight institutions with complete disclosed holdings", async () =
 });
 
 test("includes Chinese research, subscription and disclosure experiences", async () => {
-  const [page, profiles, refresh, subscribe, status, layout] = await Promise.all([
+  const [page, profiles, refreshRoute, refreshWorker, changes, subscribe, status, layout] = await Promise.all([
     readFile(new URL("app/components/PortfolioExplorer.tsx", root), "utf8"),
     readFile(new URL("app/data/funds.ts", root), "utf8"),
     readFile(new URL("app/api/refresh/route.ts", root), "utf8"),
+    readFile(new URL("app/lib/refreshHoldings.ts", root), "utf8"),
+    readFile(new URL("app/lib/holdingChanges.ts", root), "utf8"),
     readFile(new URL("app/api/subscribe/route.ts", root), "utf8"),
     readFile(new URL("app/api/status/route.ts", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
@@ -33,7 +35,16 @@ test("includes Chinese research, subscription and disclosure experiences", async
   assert.match(profiles, /Michael Burry/);
   assert.match(profiles, /The Big Short/);
   assert.match(profiles, /managerBio/);
-  assert.match(refresh, /refreshHoldings/);
+  const managerImages = [...profiles.matchAll(/image: "(\/people\/[^"]+)"/g)].map((match) => match[1]);
+  assert.equal(managerImages.length, 8);
+  for (const imagePath of managerImages) {
+    const imageFile = await stat(new URL(`public${imagePath}`, root));
+    assert.ok(imageFile.size > 5_000);
+  }
+  assert.match(refreshRoute, /refreshHoldings/);
+  assert.match(refreshWorker, /retryPendingAlerts/);
+  assert.match(refreshWorker, /DELIVERY_CLAIM_SQL/);
+  assert.match(changes, /buildAlertEmail/);
   assert.match(subscribe, /subscribers/);
   assert.match(page, /数据检查/);
   assert.match(page, /邮件提醒/);
