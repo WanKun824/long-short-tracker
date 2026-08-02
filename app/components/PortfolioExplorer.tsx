@@ -43,15 +43,16 @@ function initials(name: string) {
 }
 
 function ManagerAvatar({ fund, large = false }: { fund: FundProfile; large?: boolean }) {
+  const managerLabel = fund.managerEn ? `${fund.managerZh}（${fund.managerEn}）` : fund.managerZh;
   return (
     <div
       className={`manager-avatar ${large ? "manager-avatar--large" : ""}`}
       style={{ "--avatar-accent": fund.accent } as CSSProperties}
     >
       {fund.image ? (
-        <img src={fund.image} alt={`${fund.managerZh}（${fund.managerEn}）头像`} />
+        <img src={fund.image} alt={`${managerLabel}头像`} />
       ) : (
-        <span aria-label={`${fund.managerZh}姓名缩写头像`}>{initials(fund.managerEn)}</span>
+        <span aria-label={`${fund.managerZh}姓名缩写头像`}>{initials(fund.managerEn || fund.managerZh)}</span>
       )}
     </div>
   );
@@ -129,7 +130,7 @@ function FundModal({
             <h2 id="fund-modal-title">{fund.nameZh}</h2>
             <p className="fund-modal__english">{fund.nameEn}</p>
             <div className="modal-manager">
-              {fund.managerZh} <span>{fund.managerEn}</span> · {fund.managerRole}
+              {fund.managerZh} {fund.managerEn && <span>{fund.managerEn}</span>} · {fund.managerRole}
             </div>
           </div>
           <div className="modal-identity__status">
@@ -141,6 +142,11 @@ function FundModal({
         <div className="fund-modal__body">
           <aside className="fund-profile-panel">
             <p className="profile-lede">{fund.description}</p>
+
+            <div className="profile-block profile-block--person">
+              <h3>人物小传</h3>
+              <p>{fund.managerBio}</p>
+            </div>
 
             <div className="profile-stat-grid">
               <div>
@@ -330,10 +336,10 @@ export function PortfolioExplorer() {
   return (
     <main>
       <div className="market-strip" aria-label="数据状态">
-        <span><i /> 数据源 SEC EDGAR</span>
+        <span><i /> 持仓镜 · 中文机构持仓研究</span>
         <span>最新完整季度 2026 Q1</span>
         <span>Q2申报截止 2026-08-14</span>
-        <span>13F数据延迟约45天</span>
+        <span>资料源 SEC EDGAR</span>
       </div>
 
       <header className="site-header">
@@ -349,15 +355,15 @@ export function PortfolioExplorer() {
           <a href="#compare">策略图谱</a>
           <a href="#methodology">数据说明</a>
         </nav>
-        <a className="header-cta" href="#subscribe">订阅变动提醒</a>
+        <a className="header-cta" href="#subscribe">免费订阅</a>
       </header>
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <div className="eyebrow"><span>13F INTELLIGENCE</span> · 面向中国投资者</div>
-          <h1>看懂全球顶级资本<br />的每一次<span>下注</span></h1>
+          <div className="eyebrow"><span>THE HOLDINGS EDITION</span> · 面向中国读者</div>
+          <h1>穿过持仓表，<br />看见投资人的<span>判断。</span></h1>
           <p>
-            用中文拆解八家传奇投资机构的最新持仓、投资方法与风险。不是简单抄作业，而是读懂它们为什么这样配置。
+            公开持仓从来不是答案，而是一份带有时间差的证词。我们用中文梳理八家代表性机构的人物、方法、仓位与风险，让每一个数字都回到它应有的语境里。
           </p>
           <div className="hero-actions">
             <a className="primary-button" href="#institutions">浏览机构持仓 <span>↘</span></a>
@@ -370,34 +376,29 @@ export function PortfolioExplorer() {
           </div>
         </div>
 
-        <div className="hero-terminal" aria-label="机构持仓摘要">
-          <div className="terminal-head">
-            <span>机构观察台</span>
-            <span className="live-pill"><i /> 已同步</span>
-          </div>
-          <div className="terminal-feature">
-            <span>最大公开证券组合</span>
-            <strong>伯克希尔·哈撒韦</strong>
-            <div>
-              <b>$263.1B</b>
-              <em>29项披露仓位</em>
-            </div>
-          </div>
-          <div className="terminal-grid">
-            {funds.slice(0, 6).map((fund, index) => (
-              <button key={fund.id} onClick={() => setSelectedFund(fund)}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{fund.nameZh}</strong>
-                <em>{fund.category}</em>
-                <i style={{ width: `${Math.max(24, fund.top5)}%`, background: fund.accent }} />
-              </button>
-            ))}
-          </div>
-          <div className="terminal-foot">
-            <span>集中度不是风险的全部</span>
-            <b>结合期权 · 空头 · 私募资产阅读</b>
-          </div>
-        </div>
+        <form className="hero-subscribe" onSubmit={submitSubscription}>
+          <div className="hero-subscribe__kicker"><i /> 每6小时检查公开申报</div>
+          <h2>下一次持仓变化，<br />直接送到你的邮箱。</h2>
+          <p>新建仓、增减持、清仓和集中度变化，用一封中文摘要说清楚。</p>
+          <label className="hero-email-field">
+            <span className="sr-only">邮箱地址</span>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="输入邮箱地址"
+              autoComplete="email"
+            />
+            <button disabled={subscribeState === "sending" || selectedIds.length === 0}>
+              {subscribeState === "sending" ? "提交中…" : "订阅全部机构"}
+            </button>
+          </label>
+          {subscribeMessage && (
+            <p className={`form-message form-message--${subscribeState}`} role="status">{subscribeMessage}</p>
+          )}
+          <small>默认关注全部8家机构，可在下方精细选择。13F并非实时交易记录。</small>
+        </form>
       </section>
 
       <section className="news-rail" aria-label="重要数据提示">
@@ -478,10 +479,16 @@ export function PortfolioExplorer() {
                 <div className="manager-line">
                   <span>基金经理</span>
                   <strong>{fund.managerZh}</strong>
-                  <em>{fund.managerEn}</em>
+                  {fund.managerEn && <em>{fund.managerEn}</em>}
                 </div>
+                <span className="manager-tag">{fund.managerTag}</span>
 
                 <p className="fund-card__summary">{fund.oneLiner}</p>
+
+                <div className="manager-bio">
+                  <span>人物小传</span>
+                  <p>{fund.managerBio}</p>
+                </div>
 
                 <div className="card-kpis">
                   <div><span>13F市值</span><strong>${fund.valueBn.toFixed(1)}B</strong></div>
@@ -622,6 +629,22 @@ export function PortfolioExplorer() {
           )}
           <p className="privacy-note">提交即表示同意接收持仓提醒。我们只保存邮箱和机构偏好，不出售个人信息。</p>
         </form>
+
+        <details className="email-setup-guide">
+          <summary>站点所有者：如何启用真实邮件发送</summary>
+          <div>
+            <ol>
+              <li><strong>注册Resend</strong><span>使用邮箱登录Resend，在Domains页面添加你拥有的域名。</span></li>
+              <li><strong>验证发件域名</strong><span>建议使用updates.你的域名这类专用子域名；把Resend给出的DKIM、SPF等DNS记录原样添加，等待状态变为Verified。</span></li>
+              <li><strong>创建API Key</strong><span>在API Keys页面新建“持仓镜-Production”，选择Sending access和已验证域名；密钥只显示一次，请立即保存。</span></li>
+              <li><strong>写入托管设置</strong><span>添加秘密变量RESEND_API_KEY；再添加ALERT_FROM_EMAIL，例如“持仓镜 &lt;alerts@你的域名&gt;”。不要把密钥发送到聊天。</span></li>
+            </ol>
+            <p>
+              <a href="https://resend.com/docs/dashboard/domains/introduction" target="_blank" rel="noreferrer">Resend域名验证指南 ↗</a>
+              <a href="https://resend.com/docs/dashboard/api-keys/introduction" target="_blank" rel="noreferrer">Resend API Key指南 ↗</a>
+            </p>
+          </div>
+        </details>
       </section>
 
       <footer className="site-footer">

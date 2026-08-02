@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
+import { Newsreader, Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
 import "./globals.css";
 
 const sans = Noto_Sans_SC({
@@ -13,6 +13,12 @@ const serif = Noto_Serif_SC({
   variable: "--font-serif-cn",
   subsets: ["latin"],
   weight: ["600", "700", "900"],
+});
+
+const editorial = Newsreader({
+  variable: "--font-editorial",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,13 +37,11 @@ export async function generateMetadata(): Promise<Metadata> {
     description: "八家代表性投资机构，完整13F持仓与中文策略解读。",
     type: "website",
     locale: "zh_CN",
-    images: [{ url: "/og.png", width: 1748, height: 910, alt: "持仓镜金融持仓追踪网站" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "持仓镜｜看懂全球顶级资本的每一次下注",
     description: "八家代表性投资机构，完整13F持仓与中文策略解读。",
-    images: ["/og.png"],
   },
   };
 }
@@ -45,7 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body className={`${sans.variable} ${serif.variable}`}>{children}</body>
+      <body className={`${sans.variable} ${serif.variable} ${editorial.variable}`}>{children}</body>
     </html>
   );
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
@@ -23,13 +23,16 @@ test("includes Chinese research, subscription and disclosure experiences", async
     readFile(new URL("app/api/subscribe/route.ts", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
   ]);
-  assert.match(page, /看懂全球顶级资本/);
+  assert.match(page, /穿过持仓表/);
+  assert.match(page, /下一次持仓变化/);
   assert.match(page, /订阅持仓变动/);
   assert.match(page, /13F是一张延迟的X光片/);
+  assert.match(page, /如何启用真实邮件发送/);
   assert.match(profiles, /Situational Awareness LP/);
-  assert.match(profiles, /Warren Buffett/);
+  assert.match(profiles, /Michael Burry/);
+  assert.match(profiles, /The Big Short/);
+  assert.match(profiles, /managerBio/);
   assert.match(refresh, /refreshHoldings/);
   assert.match(subscribe, /subscribers/);
-  assert.match(layout, /\/og\.png/);
-  await access(new URL("public/og.png", root));
+  assert.match(layout, /Newsreader/);
 });
