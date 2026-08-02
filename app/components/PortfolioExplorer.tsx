@@ -14,6 +14,14 @@ type SortMode = "value" | "concentration" | "holdings";
 type DynamicPayload = {
   holdings?: Partial<Record<FundProfile["id"], Holding[]>>;
 };
+type ServiceStatus = {
+  dataReady: boolean;
+  emailReady: boolean;
+  trackedFunds: number;
+  snapshotFunds: number;
+  lastRefreshAt: string | null;
+  refreshIntervalHours: number;
+};
 
 const categories = ["全部", ...Array.from(new Set(funds.map((fund) => fund.category)))];
 
@@ -32,6 +40,19 @@ function formatShares(shares: number | null, principal: number | null) {
   const value = shares ?? principal;
   if (!value) return "—";
   return new Intl.NumberFormat("zh-CN", { notation: "compact", maximumFractionDigits: 2 }).format(value);
+}
+
+function formatCheckedAt(value: string | null) {
+  if (!value) return "等待首次检查";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "最近检查时间已记录";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
 }
 
 function initials(name: string) {
@@ -260,6 +281,7 @@ export function PortfolioExplorer() {
   const [selectedIds, setSelectedIds] = useState<FundProfile["id"][]>(funds.map((fund) => fund.id));
   const [subscribeState, setSubscribeState] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [subscribeMessage, setSubscribeMessage] = useState("");
+  const [serviceStatus, setServiceStatus] = useState<ServiceStatus | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,11 +289,19 @@ export function PortfolioExplorer() {
     const hydrate = async () => {
       try {
         await fetch("/api/refresh", { method: "POST", headers: { "x-site-heartbeat": "1" } });
-        const response = await fetch("/api/holdings", { cache: "no-store" });
-        if (!response.ok) return;
-        const payload = (await response.json()) as DynamicPayload;
-        if (!cancelled && payload.holdings && Object.keys(payload.holdings).length) {
-          setLiveHoldings((current) => ({ ...current, ...payload.holdings }));
+        const [response, statusResponse] = await Promise.all([
+          fetch("/api/holdings", { cache: "no-store" }),
+          fetch("/api/status", { cache: "no-store" }),
+        ]);
+        if (response.ok) {
+          const payload = (await response.json()) as DynamicPayload;
+          if (!cancelled && payload.holdings && Object.keys(payload.holdings).length) {
+            setLiveHoldings((current) => ({ ...current, ...payload.holdings }));
+          }
+        }
+        if (statusResponse.ok) {
+          const status = (await statusResponse.json()) as ServiceStatus;
+          if (!cancelled) setServiceStatus(status);
         }
       } catch {
         // The verified filing snapshot bundled with the site remains available offline.
@@ -377,6 +407,15 @@ export function PortfolioExplorer() {
         </div>
 
         <form className="hero-subscribe" onSubmit={submitSubscription}>
+          <div className="hero-service-status" aria-label="订阅服务状态">
+            <span className={serviceStatus?.dataReady ? "is-ready" : "is-pending"}>
+              <i /> 数据检查 {serviceStatus?.dataReady ? "已启用" : "确认中"}
+            </span>
+            <span className={serviceStatus?.emailReady ? "is-ready" : "is-pending"}>
+              <i /> 邮件提醒 {serviceStatus?.emailReady ? "已启用" : "待配置"}
+            </span>
+            <small>最近检查：{formatCheckedAt(serviceStatus?.lastRefreshAt ?? null)}</small>
+          </div>
           <div className="hero-subscribe__kicker"><i /> 每6小时检查公开申报</div>
           <h2>下一次持仓变化，<br />直接送到你的邮箱。</h2>
           <p>新建仓、增减持、清仓和集中度变化，用一封中文摘要说清楚。</p>

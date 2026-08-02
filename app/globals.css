@@ -320,6 +320,46 @@ button {
   letter-spacing: -.035em;
 }
 
+.hero-service-status {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.hero-service-status > span {
+  padding: 5px 8px;
+  border: 1px solid #5b5a55;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+}
+
+.hero-service-status > span i {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: #9d9a93;
+  vertical-align: 1px;
+}
+
+.hero-service-status > span.is-ready i {
+  background: #70b889;
+}
+
+.hero-service-status > span.is-pending {
+  color: #d8c8a7;
+}
+
+.hero-service-status > small {
+  margin: 0 0 0 auto;
+  color: #9d9a93;
+  font-size: 9px;
+}
+
 .hero-subscribe > p {
   margin: 0;
   font-family: var(--font-serif-cn), serif;

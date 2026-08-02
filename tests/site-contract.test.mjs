@@ -16,11 +16,12 @@ test("ships all eight institutions with complete disclosed holdings", async () =
 });
 
 test("includes Chinese research, subscription and disclosure experiences", async () => {
-  const [page, profiles, refresh, subscribe, layout] = await Promise.all([
+  const [page, profiles, refresh, subscribe, status, layout] = await Promise.all([
     readFile(new URL("app/components/PortfolioExplorer.tsx", root), "utf8"),
     readFile(new URL("app/data/funds.ts", root), "utf8"),
     readFile(new URL("app/api/refresh/route.ts", root), "utf8"),
     readFile(new URL("app/api/subscribe/route.ts", root), "utf8"),
+    readFile(new URL("app/api/status/route.ts", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
   ]);
   assert.match(page, /穿过持仓表/);
@@ -34,5 +35,9 @@ test("includes Chinese research, subscription and disclosure experiences", async
   assert.match(profiles, /managerBio/);
   assert.match(refresh, /refreshHoldings/);
   assert.match(subscribe, /subscribers/);
+  assert.match(page, /数据检查/);
+  assert.match(page, /邮件提醒/);
+  assert.match(status, /emailReady/);
+  assert.match(status, /lastRefreshAt/);
   assert.match(layout, /Newsreader/);
 });
