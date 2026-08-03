@@ -418,7 +418,7 @@ export function PortfolioExplorer() {
           </div>
           <div className="hero-subscribe__kicker"><i /> 每6小时检查公开申报</div>
           <h2>订阅13F申报更新</h2>
-          <p>出现新申报时，按所选机构发送新建仓、增减持、清仓和集中度变化摘要。</p>
+          <p>订阅后立即发送所选机构的当前13F状态；出现新申报时，继续发送新建仓、增减持和清仓摘要。</p>
           <label className="hero-email-field">
             <span className="sr-only">邮箱地址</span>
             <input
@@ -615,7 +615,7 @@ export function PortfolioExplorer() {
         <div className="subscribe-copy">
           <span className="eyebrow">EMAIL ALERTS</span>
           <h2>订阅13F持仓更新</h2>
-          <p>新13F出现时，发送新建仓、增减持、清仓与集中度变化的中文摘要。</p>
+          <p>订阅后立即发送当前13F状态；新申报出现时，继续发送新建仓、增减持、清仓与集中度变化摘要。</p>
           <div className="alert-preview">
             <div className="alert-preview__head"><span>LONG / SHORT TRACKER · 更新摘要</span><em>示例</em></div>
             <strong>伯克希尔提交最新13F</strong>

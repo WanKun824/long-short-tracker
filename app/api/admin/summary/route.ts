@@ -97,7 +97,10 @@ export async function GET(request: Request) {
       db.prepare("SELECT value, updated_at FROM system_state WHERE key = 'last_refresh'").first<RefreshRow>(),
     ]);
 
-    const fundNames = new Map<string, string>(funds.map((fund) => [fund.id, fund.nameZh]));
+    const fundNames = new Map<string, string>([
+      ...funds.map((fund) => [fund.id, fund.nameZh] as const),
+      ["__subscription__", "订阅状态邮件"] as const,
+    ]);
     const deliveryTotals = Object.fromEntries(alertTotals.results.map((row) => [row.status, number(row.count)]));
 
     return Response.json({

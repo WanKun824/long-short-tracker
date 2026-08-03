@@ -16,12 +16,13 @@ test("ships all eight institutions with complete disclosed holdings", async () =
 });
 
 test("includes Chinese research, subscription and disclosure experiences", async () => {
-  const [page, profiles, refreshRoute, refreshWorker, changes, subscribe, status, adminPage, adminSummary, layout] = await Promise.all([
+  const [page, profiles, refreshRoute, refreshWorker, changes, subscriptionEmail, subscribe, status, adminPage, adminSummary, layout] = await Promise.all([
     readFile(new URL("app/components/PortfolioExplorer.tsx", root), "utf8"),
     readFile(new URL("app/data/funds.ts", root), "utf8"),
     readFile(new URL("app/api/refresh/route.ts", root), "utf8"),
     readFile(new URL("app/lib/refreshHoldings.ts", root), "utf8"),
     readFile(new URL("app/lib/holdingChanges.ts", root), "utf8"),
+    readFile(new URL("app/lib/subscriptionStatusEmail.ts", root), "utf8"),
     readFile(new URL("app/api/subscribe/route.ts", root), "utf8"),
     readFile(new URL("app/api/status/route.ts", root), "utf8"),
     readFile(new URL("app/admin/page.tsx", root), "utf8"),
@@ -50,7 +51,9 @@ test("includes Chinese research, subscription and disclosure experiences", async
   assert.match(refreshWorker, /retryPendingAlerts/);
   assert.match(refreshWorker, /DELIVERY_CLAIM_SQL/);
   assert.match(changes, /buildAlertEmail/);
+  assert.match(subscriptionEmail, /订阅确认与当前13F状态/);
   assert.match(subscribe, /subscribers/);
+  assert.match(subscribe, /sendCurrentStatusEmail/);
   assert.match(page, /数据检查/);
   assert.match(page, /邮件提醒/);
   assert.match(status, /emailReady/);
