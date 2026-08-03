@@ -4,6 +4,9 @@
   "main": "./worker/index.ts",
   "compatibility_date": "2026-08-02",
   "compatibility_flags": ["nodejs_compat"],
+  "secrets": {
+    "required": ["RESEND_API_KEY"]
+  },
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist/client"
@@ -17,7 +20,8 @@
     }
   ],
   "vars": {
-    "PUBLIC_SITE_URL": "https://long-short-tracker.master-van1995.workers.dev"
+    "PUBLIC_SITE_URL": "https://long-short-tracker.master-van1995.workers.dev",
+    "ALERT_FROM_EMAIL": "LONG / SHORT TRACKER <alerts@vincenvan.cc>"
   },
   "observability": {
     "enabled": true

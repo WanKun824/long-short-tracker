@@ -61,3 +61,24 @@ The application supports these server-side environment variables:
 - `REFRESH_SECRET`: optional authorization secret for scheduled refresh requests
 
 Never commit production credentials or subscriber data to the repository.
+
+## Cloudflare Workers email setup
+
+Cloudflare Workers and the private Sites deployment keep separate runtime settings. The Worker reads its non-sensitive email settings from `wrangler.jsonc`:
+
+- `PUBLIC_SITE_URL`: public Worker URL used in email links
+- `ALERT_FROM_EMAIL`: `LONG / SHORT TRACKER <alerts@vincenvan.cc>`
+
+Store the Resend credential as an encrypted Cloudflare secret:
+
+```bash
+npx wrangler secret put RESEND_API_KEY
+```
+
+The equivalent dashboard path is **Workers & Pages → long-short-tracker → Settings → Variables and Secrets**. Add `RESEND_API_KEY` as an encrypted secret, then deploy the Worker:
+
+```bash
+npm run deploy
+```
+
+The Resend API key must have sending-only access and should be limited to the verified `vincenvan.cc` domain. Never add the key to `wrangler.jsonc`, `.env` files committed to Git, GitHub Actions logs, or repository documentation.
