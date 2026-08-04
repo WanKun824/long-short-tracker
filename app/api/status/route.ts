@@ -30,7 +30,7 @@ export async function GET() {
       publicSignalCount: Number(signalRow?.count ?? 0),
       lastPublicSignalsAt: signalRow?.latest ?? null,
       officialXReady: Boolean(runtime.X_BEARER_TOKEN),
-    });
+    }, { headers: { "cache-control": "no-store" } });
   } catch {
     return Response.json({
       dataReady: false,
@@ -43,6 +43,6 @@ export async function GET() {
       publicSignalCount: 0,
       lastPublicSignalsAt: null,
       officialXReady: Boolean(runtime.X_BEARER_TOKEN),
-    });
+    }, { headers: { "cache-control": "no-store" } });
   }
 }
