@@ -124,7 +124,7 @@
   border-top: 5px solid #11110f;
   border-bottom: 1px solid #11110f;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .metrics article {
@@ -311,6 +311,12 @@
   font-size: 8px;
 }
 
+.tablePanel a {
+  color: inherit;
+  text-decoration-color: #9b2f24;
+  text-underline-offset: 3px;
+}
+
 .deliveryBadge {
   display: inline-block;
   padding: 3px 6px;
@@ -421,11 +427,12 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .metrics article:nth-child(2) {
+  .metrics article:nth-child(2),
+  .metrics article:nth-child(4) {
     border-right: 0;
   }
 
-  .metrics article:nth-child(-n+2) {
+  .metrics article:nth-child(-n+4) {
     border-bottom: 1px solid #bcb7ad;
   }
 

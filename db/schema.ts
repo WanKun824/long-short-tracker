@@ -59,3 +59,21 @@ export const alertDeliveries = sqliteTable(
     uniqueIndex("idx_alert_delivery_once").on(table.subscriberId, table.fundId, table.accession),
   ],
 );
+
+export const publicSignals = sqliteTable(
+  "public_signals",
+  {
+    id: text("id").primaryKey(),
+    fundId: text("fund_id").notNull(),
+    kind: text("kind").notNull(),
+    sourceName: text("source_name").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    title: text("title").notNull(),
+    publishedAt: text("published_at").notNull(),
+    discoveredAt: text("discovered_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_public_signals_fund_url").on(table.fundId, table.sourceUrl),
+    index("idx_public_signals_latest").on(table.fundId, table.publishedAt),
+  ],
+);

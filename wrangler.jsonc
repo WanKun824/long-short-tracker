@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "long-short-tracker",
   "main": "./worker/index.ts",
-  "compatibility_date": "2026-08-02",
+  "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
   "secrets": {
     "required": ["RESEND_API_KEY"]

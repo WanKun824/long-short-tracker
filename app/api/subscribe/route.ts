@@ -1,6 +1,7 @@
 import { ensureDbSchema, getD1, getRuntimeEnv } from "../../../db";
 import { funds, holdings as baselineHoldings, type FundProfile, type Holding } from "../../data/funds";
 import { DELIVERY_CLAIM_SQL } from "../../lib/alertDelivery";
+import { latestPublicSignals } from "../../lib/publicSignals";
 import { buildSubscriptionStatusEmail, type SubscriptionFundStatus } from "../../lib/subscriptionStatusEmail";
 
 const validFundIds = new Set<string>(funds.map((fund) => fund.id));
@@ -49,6 +50,7 @@ async function currentFundStatuses(db: D1Database, selectedFundIds: FundProfile[
     WHERE id IN (SELECT MAX(id) FROM fund_snapshots GROUP BY fund_id)`).all<SnapshotRow>();
   const snapshots = new Map(result.results.map((row) => [row.fund_id, row]));
   const selected = new Set(selectedFundIds);
+  const signals = await latestPublicSignals(selectedFundIds, 2);
 
   return funds.filter((fund) => selected.has(fund.id)).map<SubscriptionFundStatus>((fund) => {
     const snapshot = snapshots.get(fund.id);
@@ -61,6 +63,7 @@ async function currentFundStatuses(db: D1Database, selectedFundIds: FundProfile[
       status: fund.status,
       statusNote: fund.statusNote,
       holdings: snapshot ? parseHoldings(snapshot.data_json, baselineHoldings[fund.id]) : baselineHoldings[fund.id],
+      signals: signals.get(fund.id) ?? [],
     };
   });
 }

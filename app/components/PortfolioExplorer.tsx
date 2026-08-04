@@ -21,6 +21,10 @@ type ServiceStatus = {
   snapshotFunds: number;
   lastRefreshAt: string | null;
   refreshIntervalHours: number;
+  publicSignalsReady: boolean;
+  publicSignalCount: number;
+  lastPublicSignalsAt: string | null;
+  officialXReady: boolean;
 };
 
 const categories = ["全部", ...Array.from(new Set(funds.map((fund) => fund.category)))];
@@ -393,7 +397,7 @@ export function PortfolioExplorer() {
           <div className="eyebrow"><span>INSTITUTIONAL POSITION DATA</span> · 中文数据平台</div>
           <h1>美国机构投资者<br /><span>持仓数据库</span></h1>
           <p>
-            跟踪8家代表性投资机构的SEC 13F申报，提供完整持仓、持仓权重、组合集中度、基金经理资料与邮件更新提醒。
+            跟踪8家代表性投资机构的SEC 13F原始申报，并汇总机构官网、官方社媒与可信财经媒体的近期公开动态。
           </p>
           <div className="hero-actions">
             <a className="primary-button" href="#institutions">查看机构持仓 <span>↘</span></a>
@@ -414,11 +418,14 @@ export function PortfolioExplorer() {
             <span className={serviceStatus?.emailReady ? "is-ready" : "is-pending"}>
               <i /> 邮件提醒 {serviceStatus?.emailReady ? "已启用" : "待配置"}
             </span>
+            <span className={serviceStatus?.publicSignalsReady ? "is-ready" : "is-pending"}>
+              <i /> 公开信源 {serviceStatus?.publicSignalsReady ? "已启用" : "确认中"}
+            </span>
             <small>最近检查：{formatCheckedAt(serviceStatus?.lastRefreshAt ?? null)}</small>
           </div>
           <div className="hero-subscribe__kicker"><i /> 每6小时检查公开申报</div>
           <h2>订阅13F申报更新</h2>
-          <p>订阅后立即发送所选机构的当前13F状态；出现新申报时，继续发送新建仓、增减持和清仓摘要。</p>
+          <p>订阅后立即发送当前13F状态；新申报与经筛选的官网、官方 X、主流财经媒体动态将分别发送。</p>
           <label className="hero-email-field">
             <span className="sr-only">邮箱地址</span>
             <input
@@ -436,7 +443,7 @@ export function PortfolioExplorer() {
           {subscribeMessage && (
             <p className={`form-message form-message--${subscribeState}`} role="status">{subscribeMessage}</p>
           )}
-          <small>默认关注全部8家机构，可在下方精细选择。13F并非实时交易记录。</small>
+          <small>默认关注全部8家机构，可在下方精细选择。社媒与新闻仅作背景，不能推断实时仓位。</small>
         </form>
       </section>
 
@@ -602,6 +609,7 @@ export function PortfolioExplorer() {
         <div className="methodology-intro">
           <span className="eyebrow">13F DATA LIMITATIONS</span>
           <h2>13F数据范围与限制</h2>
+          <p>持仓数据只读取SEC EDGAR原始申报及information table XML。机构官网、已确认的官方 X 账号，以及Reuters、Bloomberg、Financial Times、The Wall Street Journal、The New York Times、CNBC、Barron&apos;s等媒体仅列作近期公开背景，并与持仓变化严格分开。</p>
         </div>
         <div className="methodology-grid">
           <article><span>01</span><h3>有时间差</h3><p>机构最晚可在季度结束后45天申报。你看到的仓位，可能已经被调整。</p></article>
@@ -615,7 +623,7 @@ export function PortfolioExplorer() {
         <div className="subscribe-copy">
           <span className="eyebrow">EMAIL ALERTS</span>
           <h2>订阅13F持仓更新</h2>
-          <p>订阅后立即发送当前13F状态；新申报出现时，继续发送新建仓、增减持、清仓与集中度变化摘要。</p>
+          <p>订阅后立即发送当前13F状态；新申报出现时发送持仓变化摘要，可信公开信源出现新动态时另发背景摘要，并附原始链接和日期。</p>
           <div className="alert-preview">
             <div className="alert-preview__head"><span>LONG / SHORT TRACKER · 更新摘要</span><em>示例</em></div>
             <strong>伯克希尔提交最新13F</strong>
@@ -647,7 +655,7 @@ export function PortfolioExplorer() {
 
           <div className="subscribe-form__head subscribe-form__head--email">
             <span>02</span>
-            <div><strong>接收邮箱</strong><p>只发送持仓更新与重要状态变化。</p></div>
+            <div><strong>接收邮箱</strong><p>接收SEC持仓更新与可信公开信源摘要。</p></div>
           </div>
           <label className="email-field">
             <span className="sr-only">邮箱地址</span>
@@ -660,7 +668,7 @@ export function PortfolioExplorer() {
               autoComplete="email"
             />
             <button disabled={subscribeState === "sending" || selectedIds.length === 0}>
-              {subscribeState === "sending" ? "正在订阅…" : "订阅持仓变动"}
+              {subscribeState === "sending" ? "正在订阅…" : "订阅机构更新"}
             </button>
           </label>
           {subscribeMessage && (

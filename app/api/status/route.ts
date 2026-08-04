@@ -3,6 +3,7 @@ import { funds } from "../../data/funds";
 
 type CountRow = { count: number };
 type RefreshRow = { value: string; updated_at: string };
+type SignalRow = { count: number; latest: string | null };
 
 export async function GET() {
   const runtime = getRuntimeEnv();
@@ -11,9 +12,10 @@ export async function GET() {
   try {
     await ensureDbSchema();
     const db = getD1();
-    const [snapshotRow, refreshRow] = await Promise.all([
+    const [snapshotRow, refreshRow, signalRow] = await Promise.all([
       db.prepare("SELECT COUNT(DISTINCT fund_id) AS count FROM fund_snapshots").first<CountRow>(),
       db.prepare("SELECT value, updated_at FROM system_state WHERE key = 'last_refresh'").first<RefreshRow>(),
+      db.prepare("SELECT COUNT(*) AS count, MAX(discovered_at) AS latest FROM public_signals").first<SignalRow>(),
     ]);
     const snapshotFunds = Number(snapshotRow?.count ?? 0);
 
@@ -24,6 +26,10 @@ export async function GET() {
       snapshotFunds,
       lastRefreshAt: refreshRow?.value ?? refreshRow?.updated_at ?? null,
       refreshIntervalHours: 6,
+      publicSignalsReady: true,
+      publicSignalCount: Number(signalRow?.count ?? 0),
+      lastPublicSignalsAt: signalRow?.latest ?? null,
+      officialXReady: Boolean(runtime.X_BEARER_TOKEN),
     });
   } catch {
     return Response.json({
@@ -33,6 +39,10 @@ export async function GET() {
       snapshotFunds: 0,
       lastRefreshAt: null,
       refreshIntervalHours: 6,
+      publicSignalsReady: false,
+      publicSignalCount: 0,
+      lastPublicSignalsAt: null,
+      officialXReady: Boolean(runtime.X_BEARER_TOKEN),
     });
   }
 }

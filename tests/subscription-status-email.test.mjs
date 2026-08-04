@@ -23,6 +23,16 @@ test("builds a safe current-status email for a new subscription", () => {
         principal: null,
         option: null,
       }],
+      signals: [{
+        id: "signal-1",
+        fundId: "scion",
+        kind: "media",
+        sourceName: "Reuters",
+        sourceUrl: "https://reuters.com/example?a=1&b=2",
+        title: "Burry & markets <update>",
+        publishedAt: "2026-08-04T07:00:00.000Z",
+        discoveredAt: "2026-08-04T08:00:00.000Z",
+      }],
     }],
     publicSiteUrl: "https://example.com/",
     unsubscribeToken: "a/b",
@@ -34,4 +44,5 @@ test("builds a safe current-status email for a new subscription", () => {
   assert.match(email.html, /13F通常在季度结束后45天内披露/);
   assert.match(email.html, /https:\/\/example\.com\/api\/unsubscribe\?token=a%2Fb/);
   assert.ok(!email.html.includes("<NVDA>"));
+  assert.match(email.html, /Burry &amp; markets &lt;update&gt;/);
 });

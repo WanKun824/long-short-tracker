@@ -31,6 +31,16 @@ type AlertRow = {
   created_at: string;
 };
 type RefreshRow = { value: string; updated_at: string };
+type PublicSignalTotal = { count: number; fund_count: number };
+type PublicSignalRow = {
+  fund_id: string;
+  kind: string;
+  source_name: string;
+  source_url: string;
+  title: string;
+  published_at: string;
+  discovered_at: string;
+};
 type StoredChanges = {
   baseline?: boolean;
   added?: unknown[];
@@ -67,7 +77,7 @@ export async function GET(request: Request) {
   try {
     await ensureDbSchema();
     const db = getD1();
-    const [subscriberTotals, dailySignups, snapshotTotals, snapshots, alertTotals, alerts, lastRefresh] = await Promise.all([
+    const [subscriberTotals, dailySignups, snapshotTotals, snapshots, alertTotals, alerts, lastRefresh, publicSignalTotals, publicSignals] = await Promise.all([
       db.prepare(`SELECT
         COUNT(*) AS total,
         SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active,
@@ -95,11 +105,15 @@ export async function GET(request: Request) {
         ORDER BY id DESC
         LIMIT 50`).all<AlertRow>(),
       db.prepare("SELECT value, updated_at FROM system_state WHERE key = 'last_refresh'").first<RefreshRow>(),
+      db.prepare("SELECT COUNT(*) AS count, COUNT(DISTINCT fund_id) AS fund_count FROM public_signals").first<PublicSignalTotal>(),
+      db.prepare(`SELECT fund_id, kind, source_name, source_url, title, published_at, discovered_at
+        FROM public_signals ORDER BY datetime(published_at) DESC LIMIT 50`).all<PublicSignalRow>(),
     ]);
 
     const fundNames = new Map<string, string>([
       ...funds.map((fund) => [fund.id, fund.nameZh] as const),
       ["__subscription__", "订阅状态邮件"] as const,
+      ["__signals__", "公开动态摘要"] as const,
     ]);
     const deliveryTotals = Object.fromEntries(alertTotals.results.map((row) => [row.status, number(row.count)]));
 
@@ -140,6 +154,20 @@ export async function GET(request: Request) {
           providerId: row.provider_id,
           error: row.error,
           createdAt: row.created_at,
+        })),
+      },
+      publicSignals: {
+        count: number(publicSignalTotals?.count),
+        fundCount: number(publicSignalTotals?.fund_count),
+        recent: publicSignals.results.map((row) => ({
+          fundId: row.fund_id,
+          fundName: fundNames.get(row.fund_id) ?? row.fund_id,
+          kind: row.kind,
+          sourceName: row.source_name,
+          sourceUrl: row.source_url,
+          title: row.title,
+          publishedAt: row.published_at,
+          discoveredAt: row.discovered_at,
         })),
       },
     }, { headers: { "cache-control": "no-store" } });

@@ -1,4 +1,5 @@
 import type { Holding } from "../data/funds";
+import type { PublicSignal } from "./publicSignals";
 
 export type SubscriptionFundStatus = {
   fundId: string;
@@ -9,6 +10,7 @@ export type SubscriptionFundStatus = {
   status: string;
   statusNote: string;
   holdings: Holding[];
+  signals: PublicSignal[];
 };
 
 function escapeHtml(value: string) {
@@ -33,6 +35,9 @@ function fundCard(fund: SubscriptionFundStatus) {
   const checkedAt = fund.checkedAt
     ? `<span style="color:#777268">数据检查：${escapeHtml(fund.checkedAt.slice(0, 10))}</span>`
     : "";
+  const signals = [...fund.signals]
+    .sort((left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt))
+    .slice(0, 2);
 
   return `<section style="border-top:1px solid #d8d3c8;padding:22px 0">
     <div style="display:flex;justify-content:space-between;gap:16px;align-items:baseline">
@@ -48,6 +53,10 @@ function fundCard(fund: SubscriptionFundStatus) {
         <td style="padding:6px 0;border-top:1px solid #ece8df;text-align:right;font-weight:700">${holding.weight.toFixed(1)}%</td>
       </tr>`).join("")}</tbody>
     </table>
+    ${signals.length ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid #ece8df">
+      <strong style="font-size:12px;color:#9b2f24">近期公开动态（背景信息）</strong>
+      ${signals.map((signal) => `<p style="font-size:13px;line-height:1.55;margin:8px 0 0"><a href="${escapeHtml(signal.sourceUrl)}" style="color:#34312c;text-decoration:none">${escapeHtml(signal.title)}</a><br><span style="font-size:11px;color:#777268">${escapeHtml(signal.sourceName)} · ${escapeHtml(signal.publishedAt.slice(0, 10))}</span></p>`).join("")}
+    </div>` : ""}
   </section>`;
 }
 
@@ -66,10 +75,10 @@ export function buildSubscriptionStatusEmail({
     <main style="max-width:680px;margin:auto;background:#fff;padding:36px 34px;border:1px solid #ded9cf">
       <p style="font-size:11px;letter-spacing:.14em;color:#9b2f24;margin:0">LONG / SHORT TRACKER · SUBSCRIPTION STATUS</p>
       <h1 style="font-family:Georgia,'Noto Serif SC',serif;font-size:30px;line-height:1.2;margin:12px 0;color:#11110f">订阅确认与当前13F状态</h1>
-      <p style="font-size:15px;line-height:1.8;color:#4f4b43;margin:0 0 24px">订阅已生效。以下是你所选机构目前最新的公开13F快照；出现新申报时，我们将继续发送新增、退出及主要增减持摘要。</p>
+      <p style="font-size:15px;line-height:1.8;color:#4f4b43;margin:0 0 24px">订阅已生效。以下是你所选机构目前最新的公开13F快照；出现新申报时，我们将继续发送新增、退出及主要增减持摘要，并把官网、官方 X 与主流财经媒体的近期动态作为独立背景信息发送。</p>
       ${funds.map(fundCard).join("")}
       <p style="margin:28px 0 0"><a href="${escapeHtml(siteUrl)}" style="display:inline-block;padding:11px 16px;background:#11110f;color:#fff;text-decoration:none;font-size:13px">查看完整持仓</a></p>
-      <p style="font-size:12px;line-height:1.7;color:#777268;margin:28px 0 0">13F通常在季度结束后45天内披露，只覆盖特定美国上市证券，不能代表实时交易、普通股票空头或完整投资组合。本邮件仅作信息研究，不构成投资建议。</p>
+      <p style="font-size:12px;line-height:1.7;color:#777268;margin:28px 0 0">持仓只以SEC EDGAR原始13F申报为准。13F通常在季度结束后45天内披露，只覆盖特定美国上市证券，不能代表实时交易、普通股票空头或完整投资组合；公开动态也不能用来推断实时仓位。本邮件仅作信息研究，不构成投资建议。</p>
       <p style="font-size:12px;margin:12px 0 0"><a href="${escapeHtml(unsubscribeUrl)}" style="color:#777268">退订提醒</a></p>
     </main>
   </div>`;
