@@ -1,7 +1,7 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
-import { RefreshAuditError, runPrivateSiteRefresh } from "./cloudScheduler";
+import { RefreshAuditError, runPrivateSiteRefresh, sendSchedulerFailureAlert } from "./cloudScheduler";
 
 type RuntimeEnv = Env & {
   ASSETS: Fetcher;
@@ -9,6 +9,9 @@ type RuntimeEnv = Env & {
   IMAGES: ImagesBinding;
   SITES_REFRESH_URL: string;
   SITES_REFRESH_BEARER_TOKEN: string;
+  RESEND_API_KEY: string;
+  ALERT_FROM_EMAIL: string;
+  OPERATIONS_ALERT_EMAIL: string;
 };
 
 // Image security config. SVG sources with .svg extension auto-skip the
@@ -65,15 +68,30 @@ const worker = {
           ...audit,
         }));
       })
-      .catch((cause: unknown) => {
+      .catch(async (cause: unknown) => {
         if (cause instanceof RefreshAuditError && cause.noRetry) controller.noRetry();
+        const error = cause instanceof Error ? cause.message : "未知错误";
         console.error(JSON.stringify({
           event: "cloud_refresh_failed",
           cron: controller.cron,
           scheduledTime: new Date(controller.scheduledTime).toISOString(),
           durationMs: Date.now() - startedAt,
-          error: cause instanceof Error ? cause.message : "未知错误",
+          error,
         }));
+        try {
+          await sendSchedulerFailureAlert(env, {
+            cron: controller.cron,
+            scheduledTime: controller.scheduledTime,
+            error,
+          });
+          console.log(JSON.stringify({ event: "cloud_refresh_failure_alert_sent", scheduledTime: controller.scheduledTime }));
+        } catch (alertCause) {
+          console.error(JSON.stringify({
+            event: "cloud_refresh_failure_alert_failed",
+            scheduledTime: controller.scheduledTime,
+            error: alertCause instanceof Error ? alertCause.message : "未知错误",
+          }));
+        }
         throw cause;
       });
     ctx.waitUntil(task);

@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
   "secrets": {
-    "required": ["RESEND_API_KEY", "SITES_REFRESH_BEARER_TOKEN"]
+    "required": ["RESEND_API_KEY", "SITES_REFRESH_BEARER_TOKEN", "OPERATIONS_ALERT_EMAIL"]
   },
   "triggers": {
     "crons": ["0 */12 * * *"]

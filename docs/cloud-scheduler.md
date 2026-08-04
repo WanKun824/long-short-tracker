@@ -28,12 +28,14 @@ Cloudflare Cron（每天 00:00、12:00 UTC）
     "SITES_REFRESH_URL": "https://holdings-lens-cn.zvcdg28tfj.chatgpt.site"
   },
   "secrets": {
-    "required": ["RESEND_API_KEY", "SITES_REFRESH_BEARER_TOKEN"]
+    "required": ["RESEND_API_KEY", "SITES_REFRESH_BEARER_TOKEN", "OPERATIONS_ALERT_EMAIL"]
   }
 }
 ```
 
 `SITES_REFRESH_BEARER_TOKEN` 是私有 Sites 的 SIWC bypass token，只保存在 Cloudflare encrypted secret 中，不能写进 GitHub、日志或 `.env` 文件。
+
+`OPERATIONS_ALERT_EMAIL` 是只接收故障告警的管理员邮箱，同样作为 encrypted secret 保存。正常刷新不发送运维邮件；刷新失败、8 家机构检查不完整、连续信源错误或邮件投递失败时才发送。告警使用计划时间作为 Resend idempotency key，避免同一次任务重复发信。
 
 ## 第一次部署
 
@@ -44,6 +46,7 @@ npm ci
 npx wrangler login
 npx wrangler secret put SITES_REFRESH_BEARER_TOKEN
 npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put OPERATIONS_ALERT_EMAIL
 npm test
 npx tsc --noEmit
 npx wrangler deploy
@@ -117,7 +120,7 @@ Invoke-RestMethod "http://localhost:8787/cdn-cgi/handler/scheduled?cron=0+*/12+*
 npx wrangler tail long-short-tracker
 ```
 
-也可以在 Cloudflare 控制台打开 **long-short-tracker → Logs → Cron Events**。成功日志事件为 `cloud_refresh_succeeded`，失败事件为 `cloud_refresh_failed`。
+也可以在 Cloudflare 控制台打开 **long-short-tracker → Logs → Cron Events**。成功日志事件为 `cloud_refresh_succeeded`，失败事件为 `cloud_refresh_failed`。故障邮件发送成功记录为 `cloud_refresh_failure_alert_sent`；若告警邮件本身也失败，则记录 `cloud_refresh_failure_alert_failed`，此时以 Cloudflare 日志为准。
 
 排查顺序：
 

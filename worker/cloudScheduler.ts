@@ -6,6 +6,12 @@ export type CloudSchedulerEnv = {
   SITES_REFRESH_BEARER_TOKEN: string;
 };
 
+export type SchedulerAlertEnv = {
+  RESEND_API_KEY: string;
+  ALERT_FROM_EMAIL: string;
+  OPERATIONS_ALERT_EMAIL: string;
+};
+
 type JsonRecord = Record<string, unknown>;
 
 export type RefreshAudit = {
@@ -39,6 +45,15 @@ function asFiniteNumber(value: unknown) {
 
 function asString(value: unknown) {
   return typeof value === "string" ? value : "";
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 async function readBoundedJson(response: Response, maxBytes = MAX_RESPONSE_BYTES) {
@@ -174,4 +189,42 @@ export async function runPrivateSiteRefresh(
     throw new RefreshAuditError(`私有站点刷新请求失败：${detail}`, response.status >= 400 && response.status < 500);
   }
   return auditRefreshPayload(payload);
+}
+
+export async function sendSchedulerFailureAlert(
+  env: SchedulerAlertEnv,
+  event: { cron: string; scheduledTime: number; error: string },
+  fetcher: typeof fetch = fetch,
+) {
+  if (!env.RESEND_API_KEY?.trim() || !env.ALERT_FROM_EMAIL?.trim() || !env.OPERATIONS_ALERT_EMAIL?.trim()) {
+    throw new Error("运维告警邮件未配置");
+  }
+  const scheduledAt = new Date(event.scheduledTime).toISOString();
+  const response = await fetcher("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "content-type": "application/json",
+      "Idempotency-Key": `cloud-refresh-failure/${event.scheduledTime}`,
+    },
+    body: JSON.stringify({
+      from: env.ALERT_FROM_EMAIL,
+      to: [env.OPERATIONS_ALERT_EMAIL],
+      subject: "LONG / SHORT TRACKER · 云端刷新失败",
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#161616">
+        <h2>云端定时刷新失败</h2>
+        <p><strong>计划：</strong>${escapeHtml(event.cron)}</p>
+        <p><strong>计划时间：</strong>${escapeHtml(scheduledAt)}</p>
+        <p><strong>错误：</strong>${escapeHtml(event.error)}</p>
+        <p><a href="https://dash.cloudflare.com/?to=/:account/workers-and-pages">打开 Cloudflare Workers 日志</a></p>
+        <p style="color:#666">13F 是延迟披露数据，不代表实时交易。</p>
+      </div>`,
+    }),
+  });
+  const payload = await readBoundedJson(response, 100_000);
+  if (!response.ok) {
+    const root = asRecord(payload);
+    throw new Error(asString(root?.message) || `Resend ${response.status}`);
+  }
+  return { sent: true, providerId: asString(asRecord(payload)?.id) || null };
 }
