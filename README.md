@@ -74,6 +74,12 @@ The application supports these server-side environment variables:
 
 Never commit production credentials or subscriber data to the repository.
 
+## Cloud scheduler
+
+Production refreshes run in Cloudflare Workers at 00:00 and 12:00 UTC (08:00 and 20:00 in Hong Kong). The scheduler securely calls the private Sites deployment, so it continues running when a personal computer is offline.
+
+Deployment steps, API contracts, secret rotation, logs, and incident handling are documented in [docs/cloud-scheduler.md](docs/cloud-scheduler.md).
+
 ## Cloudflare Workers email setup
 
 Cloudflare Workers and the private Sites deployment keep separate runtime settings. The Worker reads its non-sensitive email settings from `wrangler.jsonc`:

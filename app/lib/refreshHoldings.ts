@@ -31,7 +31,7 @@ type SubscriberRow = {
   created_at: string;
 };
 
-const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000;
+const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1_000;
 const REFRESH_CAPABILITY_VERSION = "sec-edgar-signals-v3";
 function quarterLabel(reportDate: string) {
   const [year, month] = reportDate.split("-").map(Number);
@@ -79,7 +79,7 @@ function emptyChanges(): HoldingChanges {
 async function sendAlerts(fund: FundProfile, filing: Filing, changes: HoldingChanges, discoveredAt: string) {
   const runtime = getRuntimeEnv();
   if (!runtime.RESEND_API_KEY || !runtime.ALERT_FROM_EMAIL || !runtime.PUBLIC_SITE_URL) {
-    return { sent: 0, emailStatus: "not_configured" as const };
+    return { sent: 0, failed: 0, emailStatus: "not_configured" as const };
   }
 
   const db = getD1();
@@ -90,6 +90,7 @@ async function sendAlerts(fund: FundProfile, filing: Filing, changes: HoldingCha
     .bind(discoveredAt)
     .all<SubscriberRow>();
   let sent = 0;
+  let failed = 0;
 
   for (const subscriber of result.results) {
     const selected = safeJson<string[]>(subscriber.fund_ids, []);
@@ -134,6 +135,7 @@ async function sendAlerts(fund: FundProfile, filing: Filing, changes: HoldingCha
       sent += 1;
     } catch (cause) {
       error = cause instanceof Error ? cause.message.slice(0, 500) : "邮件发送失败";
+      failed += 1;
     }
 
     await db
@@ -144,13 +146,13 @@ async function sendAlerts(fund: FundProfile, filing: Filing, changes: HoldingCha
       .run();
   }
 
-  return { sent, emailStatus: "configured" as const };
+  return { sent, failed, emailStatus: "configured" as const };
 }
 
 async function retryPendingAlerts() {
   const runtime = getRuntimeEnv();
   if (!runtime.RESEND_API_KEY || !runtime.ALERT_FROM_EMAIL || !runtime.PUBLIC_SITE_URL) {
-    return { sent: 0, emailStatus: "not_configured" as const };
+    return { sent: 0, failed: 0, emailStatus: "not_configured" as const };
   }
 
   const db = getD1();
@@ -158,6 +160,7 @@ async function retryPendingAlerts() {
     FROM fund_snapshots
     WHERE id IN (SELECT MAX(id) FROM fund_snapshots GROUP BY fund_id)`).all<SnapshotRow>();
   let sent = 0;
+  let failed = 0;
 
   for (const snapshot of snapshots.results) {
     const changes = safeJson<HoldingChanges>(snapshot.change_json, emptyChanges());
@@ -171,9 +174,10 @@ async function retryPendingAlerts() {
       snapshot.checked_at,
     );
     sent += delivery.sent;
+    failed += delivery.failed;
   }
 
-  return { sent, emailStatus: "configured" as const };
+  return { sent, failed, emailStatus: "configured" as const };
 }
 
 async function digestAccession(signals: PublicSignal[]) {
@@ -359,7 +363,7 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
         .run();
       const delivery = previous
         ? await sendAlerts(fund, latest, changes, checkedAt)
-        : { sent: 0, emailStatus: "baseline" as const };
+        : { sent: 0, failed: 0, emailStatus: "baseline" as const };
       results.push({ fundId: fund.id, status: previous ? "updated" : "seeded", accession: latest.accession, source: "sec_edgar", ...delivery });
     } catch (cause) {
       results.push({ fundId: fund.id, status: "error", error: cause instanceof Error ? cause.message : "刷新失败" });

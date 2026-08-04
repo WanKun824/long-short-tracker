@@ -5,11 +5,17 @@
   "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
   "secrets": {
-    "required": ["RESEND_API_KEY"]
+    "required": ["RESEND_API_KEY", "SITES_REFRESH_BEARER_TOKEN"]
+  },
+  "triggers": {
+    "crons": ["0 */12 * * *"]
   },
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist/client"
+  },
+  "images": {
+    "binding": "IMAGES"
   },
   "d1_databases": [
     {
@@ -21,7 +27,8 @@
   ],
   "vars": {
     "PUBLIC_SITE_URL": "https://long-short-tracker.master-van1995.workers.dev",
-    "ALERT_FROM_EMAIL": "LONG / SHORT TRACKER <alerts@vincenvan.cc>"
+    "ALERT_FROM_EMAIL": "LONG / SHORT TRACKER <alerts@vincenvan.cc>",
+    "SITES_REFRESH_URL": "https://holdings-lens-cn.zvcdg28tfj.chatgpt.site"
   },
   "observability": {
     "enabled": true

@@ -1,0 +1,83 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { RefreshAuditError, runPrivateSiteRefresh } from "../worker/cloudScheduler.ts";
+
+const env = {
+  SITES_REFRESH_URL: "https://private.example.test",
+  SITES_REFRESH_BEARER_TOKEN: "test-secret",
+};
+
+function successfulPayload(overrides = {}) {
+  return {
+    skipped: false,
+    checkedAt: "2026-08-04T00:00:00.000Z",
+    pendingAlertRetry: { sent: 0, failed: 0, emailStatus: "configured" },
+    results: Array.from({ length: 8 }, (_, index) => ({
+      fundId: `fund-${index + 1}`,
+      status: index === 0 ? "updated" : "unchanged",
+      sent: index === 0 ? 2 : 0,
+      failed: 0,
+      emailStatus: index === 0 ? "configured" : undefined,
+    })),
+    publicSignals: { newCount: 1, errors: [] },
+    publicSignalDelivery: { sent: 1, failed: 0, emailStatus: "configured" },
+    ...overrides,
+  };
+}
+
+test("cloud scheduler authenticates the private refresh and audits all eight funds", async () => {
+  let received;
+  const audit = await runPrivateSiteRefresh(env, Date.parse("2026-08-04T00:00:00Z"), async (input, init) => {
+    received = { input: String(input), init };
+    return Response.json(successfulPayload());
+  });
+
+  assert.equal(received.input, "https://private.example.test/api/refresh");
+  assert.equal(received.init.method, "POST");
+  assert.equal(new Headers(received.init.headers).get("OAI-Sites-Authorization"), "Bearer test-secret");
+  assert.deepEqual(audit, {
+    skipped: false,
+    checkedAt: "2026-08-04T00:00:00.000Z",
+    fundChecks: 8,
+    updatedFunds: ["fund-1"],
+    publicSignalCount: 1,
+    emailsSent: 3,
+  });
+});
+
+test("cloud scheduler accepts an intentional refresh rate-limit response", async () => {
+  const audit = await runPrivateSiteRefresh(env, Date.now(), async () => Response.json({
+    skipped: true,
+    reason: "rate_limited",
+    checkedAt: "2026-08-04T00:00:00.000Z",
+  }));
+  assert.equal(audit.skipped, true);
+});
+
+test("cloud scheduler fails an incomplete fund audit", async () => {
+  await assert.rejects(
+    runPrivateSiteRefresh(env, Date.now(), async () => Response.json(successfulPayload({
+      results: successfulPayload().results.slice(0, 7),
+    }))),
+    (error) => error instanceof RefreshAuditError && /预期 8 家/.test(error.message),
+  );
+});
+
+test("cloud scheduler fails on consecutive source or email delivery errors", async () => {
+  await assert.rejects(
+    runPrivateSiteRefresh(env, Date.now(), async () => Response.json(successfulPayload({
+      publicSignals: { newCount: 0, errors: [{ fundId: "scion", sources: ["RSS 500"], errorStreak: 2 }] },
+      publicSignalDelivery: { sent: 0, failed: 1, emailStatus: "configured" },
+    }))),
+    (error) => error instanceof RefreshAuditError
+      && /连续信源错误/.test(error.message)
+      && /邮件投递失败/.test(error.message),
+  );
+});
+
+test("cloud scheduler treats HTTP authentication failures as non-retryable", async () => {
+  await assert.rejects(
+    runPrivateSiteRefresh(env, Date.now(), async () => Response.json({ error: "unauthorized" }, { status: 401 })),
+    (error) => error instanceof RefreshAuditError && error.noRetry && /unauthorized/.test(error.message),
+  );
+});
