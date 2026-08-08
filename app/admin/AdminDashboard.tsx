@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import styles from "./AdminDashboard.module.css";
 
 type Snapshot = {
@@ -24,6 +25,17 @@ type Delivery = {
   createdAt: string;
 };
 
+type PublicSignal = {
+  fundId: string;
+  fundName: string;
+  kind: string;
+  sourceName: string;
+  sourceUrl: string;
+  title: string;
+  publishedAt: string;
+  discoveredAt: string;
+};
+
 type DashboardData = {
   generatedAt: string;
   lastRefreshAt: string | null;
@@ -31,6 +43,7 @@ type DashboardData = {
   dailySignups: Array<{ day: string; signups: number }>;
   dataHistory: { snapshotCount: number; fundCount: number; snapshots: Snapshot[] };
   deliveries: { sent: number; failed: number; sending: number; recent: Delivery[] };
+  publicSignals: { count: number; fundCount: number; recent: PublicSignal[] };
 };
 
 function formatDateTime(value: string | null) {
@@ -79,7 +92,8 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
   }, []);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   const dailySignups = useMemo(() => [...(data?.dailySignups ?? [])].reverse(), [data]);
@@ -88,7 +102,7 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
   return (
     <main className={styles.shell}>
       <header className={styles.topbar}>
-        <a href="/">LONG / SHORT TRACKER</a>
+        <Link href="/">LONG / SHORT TRACKER</Link>
         <div>
           <span>ADMIN</span>
           <small>{viewerEmail}</small>
@@ -120,6 +134,7 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
             <article><span>近7日新增</span><strong>{data.subscribers.last7Days}</strong><small>今日 {data.subscribers.today}</small></article>
             <article><span>历史快照</span><strong>{data.dataHistory.snapshotCount}</strong><small>{data.dataHistory.fundCount} 家机构</small></article>
             <article><span>邮件投递</span><strong>{data.deliveries.sent}</strong><small>失败 {data.deliveries.failed}</small></article>
+            <article><span>公开动态</span><strong>{data.publicSignals.count}</strong><small>{data.publicSignals.fundCount} 家机构</small></article>
           </section>
 
           <section className={styles.grid}>
@@ -175,6 +190,31 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
                 </tbody>
               </table>
             </div>
+          </section>
+
+          <section className={styles.tablePanel}>
+            <div className={styles.panelHead}>
+              <div><span>PUBLIC CONTEXT</span><h2>官网、官方 X 与财经媒体</h2></div>
+              <b>仅作背景，不推断实时仓位</b>
+            </div>
+            {data.publicSignals.recent.length ? (
+              <div className={styles.tableScroll}>
+                <table>
+                  <thead><tr><th>发布时间</th><th>机构</th><th>信源类型</th><th>来源</th><th>标题</th></tr></thead>
+                  <tbody>
+                    {data.publicSignals.recent.map((signal, index) => (
+                      <tr key={`${signal.fundId}-${signal.sourceUrl}-${index}`}>
+                        <td>{formatDateTime(signal.publishedAt)}</td>
+                        <td>{signal.fundName}</td>
+                        <td>{signal.kind}</td>
+                        <td>{signal.sourceName}</td>
+                        <td><a href={signal.sourceUrl} target="_blank" rel="noreferrer">{signal.title}</a></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <div className={styles.empty}>等待首次公开信源检查</div>}
           </section>
 
           <section className={styles.tablePanel}>

@@ -2,11 +2,20 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "long-short-tracker",
   "main": "./worker/index.ts",
-  "compatibility_date": "2026-08-02",
+  "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
+  "secrets": {
+    "required": ["RESEND_API_KEY", "SITES_REFRESH_BEARER_TOKEN", "OPERATIONS_ALERT_EMAIL", "DEEPSEEK_API_KEY"]
+  },
+  "triggers": {
+    "crons": ["0 0 * * *"]
+  },
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist/client"
+  },
+  "images": {
+    "binding": "IMAGES"
   },
   "d1_databases": [
     {
@@ -17,7 +26,11 @@
     }
   ],
   "vars": {
-    "PUBLIC_SITE_URL": "https://long-short-tracker.master-van1995.workers.dev"
+    "PUBLIC_SITE_URL": "https://long-short-tracker.master-van1995.workers.dev",
+    "ALERT_FROM_EMAIL": "LONG / SHORT TRACKER <alerts@vincenvan.cc>",
+    "SITES_REFRESH_URL": "https://holdings-lens-cn.zvcdg28tfj.chatgpt.site",
+    "DEEPSEEK_BASE_URL": "https://api.deepseek.com",
+    "DEEPSEEK_MODEL": "deepseek-v4-flash"
   },
   "observability": {
     "enabled": true

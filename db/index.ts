@@ -9,6 +9,10 @@ type RuntimeEnv = {
   PUBLIC_SITE_URL?: string;
   REFRESH_SECRET?: string;
   ADMIN_EMAIL?: string;
+  X_BEARER_TOKEN?: string;
+  DEEPSEEK_API_KEY?: string;
+  DEEPSEEK_BASE_URL?: string;
+  DEEPSEEK_MODEL?: string;
 };
 
 export function getRuntimeEnv() {
@@ -68,6 +72,18 @@ export async function ensureDbSchema() {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`),
     db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_alert_delivery_once ON alert_deliveries(subscriber_id, fund_id, accession)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS public_signals (
+      id TEXT PRIMARY KEY,
+      fund_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      source_name TEXT NOT NULL,
+      source_url TEXT NOT NULL,
+      title TEXT NOT NULL,
+      published_at TEXT NOT NULL,
+      discovered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`),
+    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_public_signals_fund_url ON public_signals(fund_id, source_url)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_public_signals_latest ON public_signals(fund_id, published_at)"),
   ]);
   await db.prepare("PRAGMA optimize").run();
 }

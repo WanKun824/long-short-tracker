@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { getRuntimeEnv } from "../../db";
 import { getAuthenticatedEmail, isAdminRequest } from "../lib/adminAccess";
 import { AdminDashboard } from "./AdminDashboard";
@@ -24,7 +25,7 @@ export default async function AdminPage() {
           <span>LONG / SHORT TRACKER</span>
           <h1>管理面板不可访问</h1>
           <p>当前登录账号不在管理人员名单中。</p>
-          <a href="/">返回网站</a>
+          <Link href="/">返回网站</Link>
         </div>
       </main>
     );

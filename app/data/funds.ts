@@ -73,7 +73,7 @@ export const funds: FundProfile[] = [
     status: "已知重大变化",
     statusNote: "2026年7月底有报道称其公开股票组合已出售给Citadel，本页Q1数据仅作历史快照。",
     profileSource: "https://situationalawarenesslp.com/",
-    filingSource: "https://13f.info/13f/000204572426000008-situational-awareness-lp-q1-2026",
+    filingSource: "https://www.sec.gov/Archives/edgar/data/2045724/000204572426000008/0002045724-26-000008-index.html",
     cik: "0002045724",
   },
   {
@@ -104,7 +104,7 @@ export const funds: FundProfile[] = [
     status: "最新申报",
     statusNote: "Greg Abel现任CEO并承担最终资本配置责任，Buffett继续担任董事长。",
     profileSource: "https://berkshirehathaway.com/2025ar/2025ar.pdf",
-    filingSource: "https://13f.info/13f/000119312526226661-berkshire-hathaway-inc-q1-2026",
+    filingSource: "https://www.sec.gov/Archives/edgar/data/1067983/000119312526226661/0001193125-26-226661-index.html",
     cik: "0001067983",
   },
   {
@@ -135,7 +135,7 @@ export const funds: FundProfile[] = [
     status: "申报已终止",
     statusNote: "Scion于2025-11-10终止SEC投资顾问注册，之后公众无法继续通过13F跟踪。",
     profileSource: "https://adviserinfo.sec.gov/firm/summary/167772",
-    filingSource: "https://13f.info/13f/000164933925000007-scion-asset-management-llc-q3-2025",
+    filingSource: "https://www.sec.gov/Archives/edgar/data/1649339/000164933925000007/0001649339-25-000007-index.html",
     cik: "0001649339",
   },
   {
@@ -166,7 +166,7 @@ export const funds: FundProfile[] = [
     status: "最新申报",
     statusNote: "当前公开组合以医疗创新、半导体和新兴市场表达为主。",
     profileSource: "https://www.fool.com/investing/how-to-invest/famous-investors/duquesne-family-office/",
-    filingSource: "https://13f.info/13f/000153641126000004-duquesne-family-office-llc-q1-2026",
+    filingSource: "https://www.sec.gov/Archives/edgar/data/1536411/000153641126000004/0001536411-26-000004-index.html",
     cik: "0001536411",
   },
   {
@@ -197,7 +197,7 @@ export const funds: FundProfile[] = [
     status: "最新申报",
     statusNote: "公开组合集中在半导体、光通信、软件和互联网平台。",
     profileSource: "https://atreidesmgmt.com/",
-    filingSource: "https://13f.info/13f/000177781326000006-atreides-management-lp-q1-2026",
+    filingSource: "https://www.sec.gov/Archives/edgar/data/1777813/000177781326000006/0001777813-26-000006-index.html",
     cik: "0001777813",
   },
   {
@@ -228,7 +228,7 @@ export const funds: FundProfile[] = [
     status: "最新申报",
     statusNote: "前四项GE Aerospace、Visa、穆迪和标普全球占据组合大部分权重。",
     profileSource: "https://www.tcifund.com/",
-    filingSource: "https://13f.info/13f/000164725126000004-tci-fund-management-ltd-q1-2026",
+    filingSource: "https://www.sec.gov/Archives/edgar/data/1647251/000164725126000004/0001647251-26-000004-index.html",
     cik: "0001647251",
   },
   {
@@ -259,7 +259,7 @@ export const funds: FundProfile[] = [
     status: "最新申报",
     statusNote: "公开股票组合偏向可识别催化剂、资产价值和现金流改善。",
     profileSource: "https://www.baupost.com/Team/Seth-A-Klarman",
-    filingSource: "https://13f.info/13f/000106176826000007-baupost-group-llc-ma-q1-2026",
+    filingSource: "https://www.sec.gov/Archives/edgar/data/1061768/000106176826000007/0001061768-26-000007-index.html",
     cik: "0001061768",
   },
   {
@@ -290,7 +290,7 @@ export const funds: FundProfile[] = [
     status: "最新申报",
     statusNote: "前七项约占整个公开股票组合98%，集中度非常高。",
     profileSource: "https://pershingsquareinc.com/about-us/",
-    filingSource: "https://13f.info/13f/000117266126002336-pershing-square-capital-management-l-p-q1-2026",
+    filingSource: "https://www.sec.gov/Archives/edgar/data/1336528/000117266126002336/0001172661-26-002336-index.html",
     cik: "0001336528",
   },
 ];
