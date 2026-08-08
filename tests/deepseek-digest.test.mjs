@@ -37,11 +37,11 @@ test("uses deepseek-v4-flash JSON mode and rejects invented signal IDs", async (
     assert.match(body.messages[1].content, /signal-1/);
     return Response.json({
       choices: [{ message: { content: JSON.stringify({
-        headlineZh: "AI ????",
-        overviewZh: "?????????????",
+        headlineZh: "AI 投资动态",
+        overviewZh: "一条经来源约束的公开信息。",
         items: [
-          { signalId: "invented", titleZh: "????", summaryZh: "???", relevanceZh: "", materiality: "high" },
-          { signalId: "signal-1", titleZh: "AI ????", summaryZh: "???????????", relevanceZh: "? Atreides ???", materiality: "medium" },
+          { signalId: "invented", titleZh: "不应保留", summaryZh: "无依据", relevanceZh: "", materiality: "high" },
+          { signalId: "signal-1", titleZh: "AI 投资周期", summaryZh: "报道标题提到相关讨论。", relevanceZh: "与 Atreides 相关。", materiality: "medium" },
         ],
       }) } }],
     });

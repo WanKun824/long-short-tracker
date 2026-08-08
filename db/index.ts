@@ -21,7 +21,7 @@ export function getRuntimeEnv() {
 
 export function getD1() {
   const runtime = getRuntimeEnv();
-  if (!runtime.DB) throw new Error("????????????????");
+  if (!runtime.DB) throw new Error("订阅数据库暂不可用，请稍后重试。");
   return runtime.DB;
 }
 

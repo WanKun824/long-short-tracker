@@ -98,7 +98,7 @@ Store the Resend credential as an encrypted Cloudflare secret:
 npx wrangler secret put RESEND_API_KEY
 ```
 
-The equivalent dashboard path is **Workers & Pages ? long-short-tracker ? Settings ? Variables and Secrets**. Add `RESEND_API_KEY` as an encrypted secret, then deploy the Worker:
+The equivalent dashboard path is **Workers & Pages → long-short-tracker → Settings → Variables and Secrets**. Add `RESEND_API_KEY` as an encrypted secret, then deploy the Worker:
 
 ```bash
 npm run deploy

@@ -57,11 +57,11 @@ async function latestFiling(fund: FundProfile): Promise<Filing> {
   };
   const recent = payload.filings?.recent;
   const index = recent?.form?.findIndex((form) => form === "13F-HR" || form === "13F-HR/A") ?? -1;
-  if (!recent || index < 0) throw new Error("SEC ???13F-HR??");
+  if (!recent || index < 0) throw new Error("SEC 未返回13F-HR记录");
   const accession = recent.accessionNumber?.[index];
   const reportDate = recent.reportDate?.[index];
   const filedAt = recent.filingDate?.[index];
-  if (!accession || !reportDate || !filedAt) throw new Error("SEC ???????");
+  if (!accession || !reportDate || !filedAt) throw new Error("SEC 申报字段不完整");
   return { accession: accession.replaceAll("-", ""), period: quarterLabel(reportDate), filedAt };
 }
 
@@ -130,12 +130,12 @@ async function sendAlerts(fund: FundProfile, filing: Filing, changes: HoldingCha
         }),
       });
       const responseBody = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
-      if (!response.ok) throw new Error(responseBody.message ?? `???? ${response.status}`);
+      if (!response.ok) throw new Error(responseBody.message ?? `邮件服务 ${response.status}`);
       status = "sent";
       providerId = responseBody.id ?? null;
       sent += 1;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message.slice(0, 500) : "??????";
+      error = cause instanceof Error ? cause.message.slice(0, 500) : "邮件发送失败";
       failed += 1;
     }
 
@@ -223,7 +223,7 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
     digest = await summarizePublicSignals(signals, runtime);
   } catch (cause) {
     summaryStatus = "error";
-    summaryError = cause instanceof Error ? cause.message.slice(0, 500) : "DeepSeek ????";
+    summaryError = cause instanceof Error ? cause.message.slice(0, 500) : "DeepSeek 摘要失败";
     console.error(JSON.stringify({ event: "deepseek_digest_failed", error: summaryError }));
   }
 
@@ -275,12 +275,12 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
       });
       const responseText = await readBoundedText(response, 100_000);
       const responseBody = responseText ? JSON.parse(responseText) as { id?: string; message?: string } : {};
-      if (!response.ok) throw new Error(responseBody.message ?? `???? ${response.status}`);
+      if (!response.ok) throw new Error(responseBody.message ?? `邮件服务 ${response.status}`);
       status = "sent";
       providerId = responseBody.id ?? null;
       sent += 1;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message.slice(0, 500) : "??????????";
+      error = cause instanceof Error ? cause.message.slice(0, 500) : "公开动态邮件发送失败";
       failed += 1;
     }
 
@@ -392,7 +392,7 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
         : { sent: 0, failed: 0, emailStatus: "baseline" as const };
       results.push({ fundId: fund.id, status: previous ? "updated" : "seeded", accession: latest.accession, source: "sec_edgar", ...delivery });
     } catch (cause) {
-      results.push({ fundId: fund.id, status: "error", error: cause instanceof Error ? cause.message : "????" });
+      results.push({ fundId: fund.id, status: "error", error: cause instanceof Error ? cause.message : "刷新失败" });
     }
   }
 

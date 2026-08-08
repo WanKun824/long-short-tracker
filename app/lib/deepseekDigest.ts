@@ -41,14 +41,14 @@ function cleanText(value: unknown, maxLength: number) {
 
 function configuredBaseUrl(value?: string) {
   const url = new URL(value?.trim() || DEFAULT_BASE_URL);
-  if (url.protocol !== "https:") throw new Error("DEEPSEEK_BASE_URL ???? HTTPS");
+  if (url.protocol !== "https:") throw new Error("DEEPSEEK_BASE_URL 必须使用 HTTPS");
   return url.toString().replace(/\/$/, "");
 }
 
 async function readBoundedText(response: Response) {
   const contentLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
-    throw new Error("DeepSeek ????????");
+    throw new Error("DeepSeek 响应超过安全上限");
   }
   if (!response.body) return "";
 
@@ -62,7 +62,7 @@ async function readBoundedText(response: Response) {
     total += value.byteLength;
     if (total > MAX_RESPONSE_BYTES) {
       await reader.cancel("response too large");
-      throw new Error("DeepSeek ????????");
+      throw new Error("DeepSeek 响应超过安全上限");
     }
     text += decoder.decode(value, { stream: true });
   }
@@ -71,7 +71,7 @@ async function readBoundedText(response: Response) {
 
 function validateDigest(payload: unknown, signals: PublicSignal[], model: string): DeepSeekDigest {
   const root = asRecord(payload);
-  if (!root) throw new Error("DeepSeek ??????? JSON ??");
+  if (!root) throw new Error("DeepSeek 返回的摘要不是 JSON 对象");
 
   const validIds = new Set(signals.map((signal) => signal.id));
   const items = (Array.isArray(root.items) ? root.items : [])
@@ -91,11 +91,11 @@ function validateDigest(payload: unknown, signals: PublicSignal[], model: string
     })
     .slice(0, MAX_INPUT_SIGNALS);
 
-  if (!items.length) throw new Error("DeepSeek ??????????");
+  if (!items.length) throw new Error("DeepSeek 摘要没有可验证的条目");
   return {
     provider: "deepseek",
     model,
-    headlineZh: cleanText(root.headlineZh, 100) || "??????",
+    headlineZh: cleanText(root.headlineZh, 100) || "近期公开动态",
     overviewZh: cleanText(root.overviewZh, 400),
     items,
   };
@@ -138,11 +138,11 @@ export async function summarizePublicSignals(
       messages: [
         {
           role: "system",
-          content: "??????????????????????????????????????????????????????????????13F?????????????? json?????????????",
+          content: "你是金融新闻编辑。只允许使用用户提供的标题、来源、日期与链接，不得补充外部事实，不得推断实时持仓、交易、空头规模或投资意图。13F是延迟披露数据。输出简体中文 json，保持克制、准确、可追溯。",
         },
         {
           role: "user",
-          content: `?????????????????? json??????{"headlineZh":"????","overviewZh":"????","items":[{"signalId":"????????ID","titleZh":"????","summaryZh":"????????????","relevanceZh":"???????????????????","materiality":"high|medium|low"}]}????????????? signalId?????ID??????????SEC???????????${JSON.stringify(input)}`,
+          content: `请把以下公开资料整理为邮件摘要。返回 json，格式示例：{"headlineZh":"一句标题","overviewZh":"两句总览","items":[{"signalId":"必须原样引用输入ID","titleZh":"中文标题","summaryZh":"只概括标题明确表达的信息","relevanceZh":"与对应机构或经理的关系；无法判断时留空","materiality":"high|medium|low"}]}。每个条目必须引用一个输入 signalId，不得创造ID；不要把媒体报道写成SEC申报或实时交易。输入：${JSON.stringify(input)}`,
         },
       ],
     }),
@@ -154,7 +154,7 @@ export async function summarizePublicSignals(
   try {
     payload = responseText ? JSON.parse(responseText) : null;
   } catch {
-    throw new Error(`DeepSeek ????? JSON?HTTP ${response.status}?`);
+    throw new Error(`DeepSeek 返回了无效 JSON（HTTP ${response.status}）`);
   }
   if (!response.ok) {
     const error = asRecord(asRecord(payload)?.error);
@@ -165,13 +165,13 @@ export async function summarizePublicSignals(
   const choice = Array.isArray(root?.choices) ? root.choices[0] : null;
   const message = asRecord(asRecord(choice)?.message);
   const content = cleanText(message?.content, MAX_RESPONSE_BYTES);
-  if (!content) throw new Error("DeepSeek ??????");
+  if (!content) throw new Error("DeepSeek 返回了空摘要");
 
   let digestPayload: unknown;
   try {
     digestPayload = JSON.parse(content);
   } catch {
-    throw new Error("DeepSeek ???????? JSON");
+    throw new Error("DeepSeek 摘要内容不是有效 JSON");
   }
   return validateDigest(digestPayload, selectedSignals, model);
 }
