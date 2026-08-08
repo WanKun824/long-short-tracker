@@ -10,6 +10,9 @@ type RuntimeEnv = {
   REFRESH_SECRET?: string;
   ADMIN_EMAIL?: string;
   X_BEARER_TOKEN?: string;
+  DEEPSEEK_API_KEY?: string;
+  DEEPSEEK_BASE_URL?: string;
+  DEEPSEEK_MODEL?: string;
 };
 
 export function getRuntimeEnv() {

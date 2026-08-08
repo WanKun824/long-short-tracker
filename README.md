@@ -22,7 +22,7 @@ The tracker currently covers eight managers:
 - Complete disclosed 13F holdings with portfolio weights and market values
 - Manager profiles and concise investment-style notes
 - Position-change tracking across filing periods
-- Email subscriptions for filing updates and recent public-context summaries
+- Email subscriptions for filing updates and source-linked public-context summaries organized by DeepSeek
 - Curated monitoring of official websites, confirmed official X accounts, and established financial press
 - Protected operations dashboard for subscriber totals, refresh history, source history, and delivery status
 - Scheduled refresh workflow backed by a persistent database
@@ -37,7 +37,7 @@ The source hierarchy is deliberately separated:
 2. **Official context:** manager websites, regulatory profiles, and confirmed official X accounts.
 3. **Media context:** Reuters, Bloomberg, Financial Times, The Wall Street Journal, The New York Times, CNBC, Barron's, The Economist, Institutional Investor, and Pensions & Investments. The monitor reads available publisher feeds directly and supplements them with GDELT discovery; every result is filtered by its final source domain.
 
-Public-context items are stored and emailed separately from 13F position changes. Every item includes its source, publication date, and original link. News or social posts are never treated as evidence of a live position or trade.
+Public-context items are stored and emailed separately from 13F position changes. DeepSeek only organizes items that already passed the source rules; every item includes its source, publication date, original title, and original link. News, social posts, and model output are never treated as evidence of a live position or trade.
 
 Values reflect the reporting period and may differ from a manager's current positions. Short positions, most derivatives, non-U.S. securities, and other undisclosed exposures are generally outside the scope of Form 13F.
 
@@ -71,14 +71,19 @@ The application supports these server-side environment variables:
 - `ALERT_FROM_EMAIL`: verified sender address
 - `REFRESH_SECRET`: optional authorization secret for scheduled refresh requests
 - `X_BEARER_TOKEN`: optional X API bearer token for recent posts from confirmed official accounts
+- `DEEPSEEK_API_KEY`: encrypted credential used to organize source-linked public-context emails
+- `DEEPSEEK_BASE_URL`: defaults to `https://api.deepseek.com`
+- `DEEPSEEK_MODEL`: defaults to `deepseek-v4-flash`
 
 Never commit production credentials or subscriber data to the repository.
 
 ## Cloud scheduler
 
-Production refreshes run in Cloudflare Workers at 00:00 and 12:00 UTC (08:00 and 20:00 in Hong Kong). The scheduler securely calls the private Sites deployment, so it continues running when a personal computer is offline.
+Production refreshes run in Cloudflare Workers at 00:00 UTC (08:00 in Hong Kong). The scheduler securely calls the private Sites deployment, so it continues running when a personal computer is offline.
 
 Deployment steps, API contracts, secret rotation, logs, and incident handling are documented in [docs/cloud-scheduler.md](docs/cloud-scheduler.md).
+
+News sources, filtering rules, DeepSeek prompt boundaries, fallback behavior, and API status fields are documented in [docs/news-digest-rules.md](docs/news-digest-rules.md).
 
 ## Cloudflare Workers email setup
 

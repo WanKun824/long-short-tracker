@@ -5,7 +5,7 @@ LONG / SHORT TRACKER 的定时任务运行在 Cloudflare Workers Cron Triggers�
 ## 当前架构
 
 ```text
-Cloudflare Cron（每天 00:00、12:00 UTC）
+Cloudflare Cron（每天 00:00 UTC）
   → POST 私有 Sites /api/refresh
   → SEC EDGAR 原始 13F + 官方/主流媒体公开信源
   → 私有 Sites D1 写入快照与历史
@@ -13,7 +13,7 @@ Cloudflare Cron（每天 00:00、12:00 UTC）
   → Cloudflare Cron Events / Workers Logs 记录结果
 ```
 
-香港时间为 UTC+8，因此 `0 */12 * * *` 对应每天 08:00 和 20:00。Cloudflare Cron 使用 UTC，修改触发器后最多可能需要约 15 分钟传播。
+香港时间为 UTC+8，因此 `0 0 * * *` 对应每天 08:00。Cloudflare Cron 使用 UTC，修改触发器后最多可能需要约 15 分钟传播。
 
 13F 是延迟披露数据，不代表实时交易。公开动态邮件必须保留原始来源名称、日期和链接，并与 SEC 持仓披露明确区分。
 
@@ -23,7 +23,7 @@ Cloudflare Cron（每天 00:00、12:00 UTC）
 
 ```jsonc
 {
-  "triggers": { "crons": ["0 */12 * * *"] },
+  "triggers": { "crons": ["0 0 * * *"] },
   "vars": {
     "SITES_REFRESH_URL": "https://holdings-lens-cn.zvcdg28tfj.chatgpt.site"
   },
@@ -54,7 +54,7 @@ npx wrangler deploy
 
 在 `SITES_REFRESH_BEARER_TOKEN` 提示中粘贴私有 Sites 项目的 bypass token。获取方式：通过 Sites 管理接口读取项目；若项目没有 token，调用“生成 SIWC bypass token”接口。生成新 token 会立即作废旧 token，因此随后必须重新执行 `wrangler secret put SITES_REFRESH_BEARER_TOKEN`。
 
-Cloudflare 控制台路径：**Workers & Pages → long-short-tracker → Settings → Triggers → Cron Triggers**。应看到 `0 */12 * * *`。
+Cloudflare 控制台路径：**Workers & Pages → long-short-tracker → Settings → Triggers → Cron Triggers**。应看到 `0 0 * * *`。
 
 ## 接口
 
@@ -75,7 +75,7 @@ Cache-Control: no-store
 - `publicSignals`：公开信源检查、新动态数量和连续错误计数。
 - `pendingAlertRetry`：历史失败邮件的重试结果。
 - `publicSignalDelivery`：公开动态摘要的发送、失败数量和邮件配置状态。
-- `skipped: true, reason: "rate_limited"`：12 小时窗口内已经刷新过，属于正常防重。
+- `skipped: true, reason: "rate_limited"`：24 小时窗口内已经刷新过，属于正常防重。
 
 返回 HTTP 500、机构数量不是 8、任一机构 `status=error`、连续信源错误或邮件投递失败，都会让 Cron Event 记为失败。
 
@@ -107,7 +107,7 @@ Invoke-RestMethod -Method Post -Uri "https://holdings-lens-cn.zvcdg28tfj.chatgpt
 
 ```powershell
 npx wrangler dev --test-scheduled
-Invoke-RestMethod "http://localhost:8787/cdn-cgi/handler/scheduled?cron=0+*/12+*+*+*&format=json"
+Invoke-RestMethod "http://localhost:8787/cdn-cgi/handler/scheduled?cron=0+0+*+*+*&format=json"
 ```
 
 公开 Worker 会把 `/__scheduled` 返回为 404，避免暴露旧式测试入口。
@@ -138,7 +138,7 @@ npx wrangler tail long-short-tracker
 - 每天香港时间 08:00、20:00：`0 */12 * * *`
 - 每天香港时间 09:00：`0 1 * * *`
 
-不要同时启用 Cloudflare Cron、GitHub Actions 和本地/Codex 定时任务，否则可能重复调用。业务接口有 12 小时防重，但仍应只保留一个正式调度器。
+不要同时启用 Cloudflare Cron、GitHub Actions 和本地/Codex 定时任务，否则可能重复调用。业务接口有 24 小时防重，但仍应只保留一个正式调度器。
 
 ## 密钥轮换
 

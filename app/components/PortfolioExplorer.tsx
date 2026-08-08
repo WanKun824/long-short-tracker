@@ -423,7 +423,7 @@ export function PortfolioExplorer() {
             </span>
             <small>最近检查：{formatCheckedAt(serviceStatus?.lastRefreshAt ?? null)}</small>
           </div>
-          <div className="hero-subscribe__kicker"><i /> 每12小时检查公开申报</div>
+          <div className="hero-subscribe__kicker"><i /> 每日检查公开申报</div>
           <h2>订阅13F申报更新</h2>
           <p>订阅后立即发送当前13F状态；新申报与经筛选的官网、官方 X、主流财经媒体动态将分别发送。</p>
           <label className="hero-email-field">
