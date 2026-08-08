@@ -59,7 +59,7 @@ function escapeHtml(value: string) {
 async function readBoundedJson(response: Response, maxBytes = MAX_RESPONSE_BYTES) {
   const contentLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-    throw new RefreshAuditError("刷新接口响应超过安全上限", false);
+    throw new RefreshAuditError("????????????", false);
   }
   if (!response.body) return null;
 
@@ -73,7 +73,7 @@ async function readBoundedJson(response: Response, maxBytes = MAX_RESPONSE_BYTES
     total += value.byteLength;
     if (total > maxBytes) {
       await reader.cancel("response too large");
-      throw new RefreshAuditError("刷新接口响应超过安全上限", false);
+      throw new RefreshAuditError("????????????", false);
     }
     text += decoder.decode(value, { stream: true });
   }
@@ -82,7 +82,7 @@ async function readBoundedJson(response: Response, maxBytes = MAX_RESPONSE_BYTES
   try {
     return text ? JSON.parse(text) as unknown : null;
   } catch {
-    throw new RefreshAuditError("刷新接口返回了无效 JSON", false);
+    throw new RefreshAuditError("????????? JSON", false);
   }
 }
 
@@ -91,22 +91,22 @@ function configuredRefreshUrl(value: string) {
   try {
     url = new URL("/api/refresh", value);
   } catch {
-    throw new RefreshAuditError("SITES_REFRESH_URL 配置无效");
+    throw new RefreshAuditError("SITES_REFRESH_URL ????");
   }
   if (url.protocol !== "https:") {
-    throw new RefreshAuditError("SITES_REFRESH_URL 必须使用 HTTPS");
+    throw new RefreshAuditError("SITES_REFRESH_URL ???? HTTPS");
   }
   return url;
 }
 
 function auditRefreshPayload(payload: unknown): RefreshAudit {
   const root = asRecord(payload);
-  if (!root) throw new RefreshAuditError("刷新接口没有返回结果对象");
-  if (asString(root.error)) throw new RefreshAuditError(`刷新接口失败：${asString(root.error)}`);
+  if (!root) throw new RefreshAuditError("????????????");
+  if (asString(root.error)) throw new RefreshAuditError(`???????${asString(root.error)}`);
 
   if (root.skipped === true) {
     if (root.reason !== "rate_limited") {
-      throw new RefreshAuditError(`刷新被跳过：${asString(root.reason) || "原因未知"}`);
+      throw new RefreshAuditError(`??????${asString(root.reason) || "????"}`);
     }
     return {
       skipped: true,
@@ -120,7 +120,7 @@ function auditRefreshPayload(payload: unknown): RefreshAudit {
 
   const results = Array.isArray(root.results) ? root.results.map(asRecord).filter((item): item is JsonRecord => Boolean(item)) : [];
   if (results.length !== 8) {
-    throw new RefreshAuditError(`机构检查不完整：预期 8 家，实际 ${results.length} 家`);
+    throw new RefreshAuditError(`?????????? 8 ???? ${results.length} ?`);
   }
 
   const fundErrors = results.filter((item) => item.status === "error");
@@ -136,13 +136,15 @@ function auditRefreshPayload(payload: unknown): RefreshAudit {
     + asFiniteNumber(publicSignalDelivery?.failed);
   const emailNotConfigured = [pendingAlertRetry, publicSignalDelivery, ...results]
     .some((item) => item?.emailStatus === "not_configured");
+  const deepSeekFailed = publicSignalDelivery?.summaryStatus === "error";
 
   const failures: string[] = [];
-  if (fundErrors.length) failures.push(`${fundErrors.length} 家机构刷新失败`);
-  if (consecutiveSourceErrors.length) failures.push(`${consecutiveSourceErrors.length} 家机构出现连续信源错误`);
-  if (deliveryFailures) failures.push(`${deliveryFailures} 封邮件投递失败`);
-  if (emailNotConfigured) failures.push("邮件服务未配置");
-  if (failures.length) throw new RefreshAuditError(failures.join("；"));
+  if (fundErrors.length) failures.push(`${fundErrors.length} ???????`);
+  if (consecutiveSourceErrors.length) failures.push(`${consecutiveSourceErrors.length} ???????????`);
+  if (deliveryFailures) failures.push(`${deliveryFailures} ???????`);
+  if (emailNotConfigured) failures.push("???????");
+  if (deepSeekFailed) failures.push("DeepSeek ??????????????????");
+  if (failures.length) throw new RefreshAuditError(failures.join("?"));
 
   const updatedFunds = results
     .filter((item) => item.status === "updated")
@@ -168,7 +170,7 @@ export async function runPrivateSiteRefresh(
   fetcher: typeof fetch = fetch,
 ): Promise<RefreshAudit> {
   if (!env.SITES_REFRESH_BEARER_TOKEN?.trim()) {
-    throw new RefreshAuditError("缺少 SITES_REFRESH_BEARER_TOKEN");
+    throw new RefreshAuditError("?? SITES_REFRESH_BEARER_TOKEN");
   }
   const url = configuredRefreshUrl(env.SITES_REFRESH_URL);
   const response = await fetcher(url, {
@@ -186,7 +188,7 @@ export async function runPrivateSiteRefresh(
   if (!response.ok) {
     const root = asRecord(payload);
     const detail = asString(root?.error) || `HTTP ${response.status}`;
-    throw new RefreshAuditError(`私有站点刷新请求失败：${detail}`, response.status >= 400 && response.status < 500);
+    throw new RefreshAuditError(`???????????${detail}`, response.status >= 400 && response.status < 500);
   }
   return auditRefreshPayload(payload);
 }
@@ -197,7 +199,7 @@ export async function sendSchedulerFailureAlert(
   fetcher: typeof fetch = fetch,
 ) {
   if (!env.RESEND_API_KEY?.trim() || !env.ALERT_FROM_EMAIL?.trim() || !env.OPERATIONS_ALERT_EMAIL?.trim()) {
-    throw new Error("运维告警邮件未配置");
+    throw new Error("?????????");
   }
   const scheduledAt = new Date(event.scheduledTime).toISOString();
   const response = await fetcher("https://api.resend.com/emails", {
@@ -210,14 +212,14 @@ export async function sendSchedulerFailureAlert(
     body: JSON.stringify({
       from: env.ALERT_FROM_EMAIL,
       to: [env.OPERATIONS_ALERT_EMAIL],
-      subject: "LONG / SHORT TRACKER · 云端刷新失败",
+      subject: "LONG / SHORT TRACKER ? ??????",
       html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#161616">
-        <h2>云端定时刷新失败</h2>
-        <p><strong>计划：</strong>${escapeHtml(event.cron)}</p>
-        <p><strong>计划时间：</strong>${escapeHtml(scheduledAt)}</p>
-        <p><strong>错误：</strong>${escapeHtml(event.error)}</p>
-        <p><a href="https://dash.cloudflare.com/?to=/:account/workers-and-pages">打开 Cloudflare Workers 日志</a></p>
-        <p style="color:#666">13F 是延迟披露数据，不代表实时交易。</p>
+        <h2>????????</h2>
+        <p><strong>???</strong>${escapeHtml(event.cron)}</p>
+        <p><strong>?????</strong>${escapeHtml(scheduledAt)}</p>
+        <p><strong>???</strong>${escapeHtml(event.error)}</p>
+        <p><a href="https://dash.cloudflare.com/?to=/:account/workers-and-pages">?? Cloudflare Workers ??</a></p>
+        <p style="color:#666">13F ????????????????</p>
       </div>`,
     }),
   });

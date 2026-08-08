@@ -10,6 +10,9 @@ type RuntimeEnv = {
   REFRESH_SECRET?: string;
   ADMIN_EMAIL?: string;
   X_BEARER_TOKEN?: string;
+  DEEPSEEK_API_KEY?: string;
+  DEEPSEEK_BASE_URL?: string;
+  DEEPSEEK_MODEL?: string;
 };
 
 export function getRuntimeEnv() {
@@ -18,7 +21,7 @@ export function getRuntimeEnv() {
 
 export function getD1() {
   const runtime = getRuntimeEnv();
-  if (!runtime.DB) throw new Error("订阅数据库暂不可用，请稍后重试。");
+  if (!runtime.DB) throw new Error("????????????????");
   return runtime.DB;
 }
 

@@ -21,12 +21,28 @@ test("separates public context from SEC holdings and escapes source content", ()
     }],
     publicSiteUrl: "https://example.com/",
     unsubscribeToken: "a/b",
+    digest: {
+      provider: "deepseek",
+      model: "deepseek-v4-flash",
+      headlineZh: "AI ????",
+      overviewZh: "??????????",
+      items: [{
+        signalId: "one",
+        titleZh: "AI ?????",
+        summaryZh: "???????? AI ???",
+        relevanceZh: "? Atreides ????????",
+        materiality: "medium",
+      }],
+    },
   });
 
-  assert.match(email.subject, /PUBLIC|公开动态/);
+  assert.match(email.subject, /PUBLIC|????/);
   assert.match(email.html, /AI &lt;cycle&gt; &amp; markets/);
-  assert.match(email.html, /不是SEC持仓数据/);
-  assert.match(email.html, /不能据此推断机构的实时买卖/);
+  assert.match(email.html, /??SEC????/);
+  assert.match(email.html, /?????????????/);
   assert.match(email.html, /https:\/\/www\.sec\.gov\/edgar\/search\//);
   assert.ok(!email.html.includes("AI <cycle>"));
+  assert.match(email.html, /deepseek-v4-flash/);
+  assert.match(email.html, /???????? AI ??/);
+  assert.match(email.html, /????/);
 });

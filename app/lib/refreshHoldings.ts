@@ -2,6 +2,7 @@ import { ensureDbSchema, getD1, getRuntimeEnv } from "../../db";
 import { funds, holdings as baselineHoldings, type FundProfile, type Holding } from "../data/funds";
 import { DELIVERY_CLAIM_SQL } from "./alertDelivery";
 import { buildAlertEmail, summarizeChanges, type HoldingChanges } from "./holdingChanges";
+import { summarizePublicSignals, type DeepSeekDigest } from "./deepseekDigest";
 import { buildMarketSignalsEmail, type SignalEmailSection } from "./marketSignalsEmail";
 import { officialSourcesForFund, refreshPublicSignals, type PublicSignal } from "./publicSignals";
 import { fetchSecHoldingRows, readBoundedText, secHeaders } from "./sec13f";
@@ -31,8 +32,8 @@ type SubscriberRow = {
   created_at: string;
 };
 
-const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1_000;
-const REFRESH_CAPABILITY_VERSION = "sec-edgar-signals-v3";
+const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1_000;
+const REFRESH_CAPABILITY_VERSION = "sec-edgar-signals-deepseek-v4";
 function quarterLabel(reportDate: string) {
   const [year, month] = reportDate.split("-").map(Number);
   return `${year} Q${Math.ceil(month / 3)}`;
@@ -56,11 +57,11 @@ async function latestFiling(fund: FundProfile): Promise<Filing> {
   };
   const recent = payload.filings?.recent;
   const index = recent?.form?.findIndex((form) => form === "13F-HR" || form === "13F-HR/A") ?? -1;
-  if (!recent || index < 0) throw new Error("SEC 未返回13F-HR记录");
+  if (!recent || index < 0) throw new Error("SEC ???13F-HR??");
   const accession = recent.accessionNumber?.[index];
   const reportDate = recent.reportDate?.[index];
   const filedAt = recent.filingDate?.[index];
-  if (!accession || !reportDate || !filedAt) throw new Error("SEC 申报字段不完整");
+  if (!accession || !reportDate || !filedAt) throw new Error("SEC ???????");
   return { accession: accession.replaceAll("-", ""), period: quarterLabel(reportDate), filedAt };
 }
 
@@ -129,12 +130,12 @@ async function sendAlerts(fund: FundProfile, filing: Filing, changes: HoldingCha
         }),
       });
       const responseBody = (await response.json().catch(() => ({}))) as { id?: string; message?: string };
-      if (!response.ok) throw new Error(responseBody.message ?? `邮件服务 ${response.status}`);
+      if (!response.ok) throw new Error(responseBody.message ?? `???? ${response.status}`);
       status = "sent";
       providerId = responseBody.id ?? null;
       sent += 1;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message.slice(0, 500) : "邮件发送失败";
+      error = cause instanceof Error ? cause.message.slice(0, 500) : "??????";
       failed += 1;
     }
 
@@ -193,6 +194,7 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
     return {
       sent: 0,
       failed: 0,
+      summaryStatus: "not_needed" as const,
       emailStatus: runtime.RESEND_API_KEY && runtime.ALERT_FROM_EMAIL && runtime.PUBLIC_SITE_URL
         ? "configured" as const
         : "not_configured" as const,
@@ -211,6 +213,19 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
     .all<SubscriberRow>();
   let sent = 0;
   let failed = 0;
+  let digest: DeepSeekDigest | null = null;
+  let summaryStatus: "deepseek" | "not_configured" | "error" = runtime.DEEPSEEK_API_KEY
+    ? "deepseek"
+    : "not_configured";
+  let summaryError: string | null = null;
+
+  try {
+    digest = await summarizePublicSignals(signals, runtime);
+  } catch (cause) {
+    summaryStatus = "error";
+    summaryError = cause instanceof Error ? cause.message.slice(0, 500) : "DeepSeek ????";
+    console.error(JSON.stringify({ event: "deepseek_digest_failed", error: summaryError }));
+  }
 
   for (const subscriber of subscribers.results) {
     const selected = new Set(safeJson<string[]>(subscriber.fund_ids, []));
@@ -235,6 +250,10 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
       sections,
       publicSiteUrl: runtime.PUBLIC_SITE_URL,
       unsubscribeToken: subscriber.unsubscribe_token,
+      digest: digest ? {
+        ...digest,
+        items: digest.items.filter((item) => relevant.some((signal) => signal.id === item.signalId)),
+      } : null,
     });
 
     let status = "failed";
@@ -256,12 +275,12 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
       });
       const responseText = await readBoundedText(response, 100_000);
       const responseBody = responseText ? JSON.parse(responseText) as { id?: string; message?: string } : {};
-      if (!response.ok) throw new Error(responseBody.message ?? `邮件服务 ${response.status}`);
+      if (!response.ok) throw new Error(responseBody.message ?? `???? ${response.status}`);
       status = "sent";
       providerId = responseBody.id ?? null;
       sent += 1;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message.slice(0, 500) : "公开动态邮件发送失败";
+      error = cause instanceof Error ? cause.message.slice(0, 500) : "??????????";
       failed += 1;
     }
 
@@ -272,7 +291,14 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
       .run();
   }
 
-  return { sent, failed, emailStatus: "configured" as const };
+  return {
+    sent,
+    failed,
+    emailStatus: "configured" as const,
+    summaryStatus,
+    summaryModel: digest?.model ?? runtime.DEEPSEEK_MODEL ?? "deepseek-v4-flash",
+    summaryError,
+  };
 }
 
 export async function refreshHoldings({ force = false }: { force?: boolean } = {}) {
@@ -366,7 +392,7 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
         : { sent: 0, failed: 0, emailStatus: "baseline" as const };
       results.push({ fundId: fund.id, status: previous ? "updated" : "seeded", accession: latest.accession, source: "sec_edgar", ...delivery });
     } catch (cause) {
-      results.push({ fundId: fund.id, status: "error", error: cause instanceof Error ? cause.message : "刷新失败" });
+      results.push({ fundId: fund.id, status: "error", error: cause instanceof Error ? cause.message : "????" });
     }
   }
 
