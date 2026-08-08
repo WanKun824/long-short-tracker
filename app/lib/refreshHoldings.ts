@@ -33,7 +33,7 @@ type SubscriberRow = {
 };
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1_000;
-const REFRESH_CAPABILITY_VERSION = "sec-edgar-signals-deepseek-v4";
+const REFRESH_CAPABILITY_VERSION = "sec-edgar-signals-deepseek-v5";
 function quarterLabel(reportDate: string) {
   const [year, month] = reportDate.split("-").map(Number);
   return `${year} Q${Math.ceil(month / 3)}`;
@@ -315,16 +315,6 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
   }
 
   const checkedAt = new Date().toISOString();
-  await db
-    .prepare("INSERT INTO system_state (key, value, updated_at) VALUES ('last_refresh', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP")
-    .bind(checkedAt)
-    .run();
-  await db.prepare(`INSERT INTO system_state (key, value, updated_at)
-    VALUES ('refresh_capability_version', ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`)
-    .bind(REFRESH_CAPABILITY_VERSION)
-    .run();
-
   const pendingAlertRetry = await retryPendingAlerts();
   const results: Array<Record<string, unknown>> = [];
   for (const fund of funds) {
@@ -398,6 +388,17 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
 
   const publicSignals = await refreshPublicSignals(checkedAt);
   const publicSignalDelivery = await sendPublicSignalDigests(publicSignals.newSignals, checkedAt);
+
+  await db.batch([
+    db.prepare(`INSERT INTO system_state (key, value, updated_at)
+      VALUES ('last_refresh', ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`)
+      .bind(checkedAt),
+    db.prepare(`INSERT INTO system_state (key, value, updated_at)
+      VALUES ('refresh_capability_version', ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`)
+      .bind(REFRESH_CAPABILITY_VERSION),
+  ]);
 
   return {
     skipped: false,
