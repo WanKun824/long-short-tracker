@@ -31,6 +31,23 @@ type AlertRow = {
   created_at: string;
 };
 type RefreshRow = { value: string; updated_at: string };
+type RefreshRunTotalRow = { status: string; count: number };
+type RefreshRunRow = {
+  id: string;
+  trigger: string;
+  scheduled_at: string | null;
+  started_at: string;
+  completed_at: string | null;
+  status: string;
+  reason: string | null;
+  duration_ms: number | null;
+  fund_checks: number;
+  updated_funds: number;
+  public_signal_count: number;
+  emails_sent: number;
+  emails_failed: number;
+  error: string | null;
+};
 type PublicSignalTotal = { count: number; fund_count: number };
 type PublicSignalRow = {
   fund_id: string;
@@ -77,7 +94,7 @@ export async function GET(request: Request) {
   try {
     await ensureDbSchema();
     const db = getD1();
-    const [subscriberTotals, dailySignups, snapshotTotals, snapshots, alertTotals, alerts, lastRefresh, publicSignalTotals, publicSignals] = await Promise.all([
+    const [subscriberTotals, dailySignups, snapshotTotals, snapshots, alertTotals, alerts, lastRefresh, publicSignalTotals, publicSignals, refreshRunTotals, refreshRuns] = await Promise.all([
       db.prepare(`SELECT
         COUNT(*) AS total,
         SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active,
@@ -108,6 +125,11 @@ export async function GET(request: Request) {
       db.prepare("SELECT COUNT(*) AS count, COUNT(DISTINCT fund_id) AS fund_count FROM public_signals").first<PublicSignalTotal>(),
       db.prepare(`SELECT fund_id, kind, source_name, source_url, title, published_at, discovered_at
         FROM public_signals ORDER BY datetime(published_at) DESC LIMIT 50`).all<PublicSignalRow>(),
+      db.prepare(`SELECT status, COUNT(*) AS count
+        FROM refresh_runs GROUP BY status`).all<RefreshRunTotalRow>(),
+      db.prepare(`SELECT id, trigger, scheduled_at, started_at, completed_at, status, reason,
+        duration_ms, fund_checks, updated_funds, public_signal_count, emails_sent, emails_failed, error
+        FROM refresh_runs ORDER BY datetime(started_at) DESC LIMIT 60`).all<RefreshRunRow>(),
     ]);
 
     const fundNames = new Map<string, string>([
@@ -116,6 +138,7 @@ export async function GET(request: Request) {
       ["__signals__", "公开动态摘要"] as const,
     ]);
     const deliveryTotals = Object.fromEntries(alertTotals.results.map((row) => [row.status, number(row.count)]));
+    const runTotals = Object.fromEntries(refreshRunTotals.results.map((row) => [row.status, number(row.count)]));
 
     return Response.json({
       generatedAt: new Date().toISOString(),
@@ -168,6 +191,29 @@ export async function GET(request: Request) {
           title: row.title,
           publishedAt: row.published_at,
           discoveredAt: row.discovered_at,
+        })),
+      },
+      runHistory: {
+        total: refreshRunTotals.results.reduce((sum, row) => sum + number(row.count), 0),
+        succeeded: number(runTotals.succeeded),
+        skipped: number(runTotals.skipped),
+        failed: number(runTotals.failed),
+        running: number(runTotals.running),
+        recent: refreshRuns.results.map((row) => ({
+          id: row.id,
+          trigger: row.trigger,
+          scheduledAt: row.scheduled_at,
+          startedAt: row.started_at,
+          completedAt: row.completed_at,
+          status: row.status,
+          reason: row.reason,
+          durationMs: row.duration_ms,
+          fundChecks: number(row.fund_checks),
+          updatedFunds: number(row.updated_funds),
+          publicSignalCount: number(row.public_signal_count),
+          emailsSent: number(row.emails_sent),
+          emailsFailed: number(row.emails_failed),
+          error: row.error,
         })),
       },
     }, { headers: { "cache-control": "no-store" } });

@@ -15,6 +15,13 @@
       "when": 1785842000317,
       "tag": "0001_rainy_metal_master",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786262211247,
+      "tag": "0002_adorable_zzzax",
+      "breakpoints": true
     }
   ]
 }

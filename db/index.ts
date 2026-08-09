@@ -61,6 +61,25 @@ export async function ensureDbSchema() {
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS refresh_runs (
+      id TEXT PRIMARY KEY,
+      trigger TEXT NOT NULL DEFAULT 'manual',
+      scheduled_at TEXT,
+      started_at TEXT NOT NULL,
+      completed_at TEXT,
+      status TEXT NOT NULL DEFAULT 'running',
+      reason TEXT,
+      duration_ms INTEGER,
+      fund_checks INTEGER NOT NULL DEFAULT 0,
+      updated_funds INTEGER NOT NULL DEFAULT 0,
+      public_signal_count INTEGER NOT NULL DEFAULT 0,
+      emails_sent INTEGER NOT NULL DEFAULT 0,
+      emails_failed INTEGER NOT NULL DEFAULT 0,
+      error TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_refresh_runs_started_at ON refresh_runs(started_at)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_refresh_runs_status_started_at ON refresh_runs(status, started_at)"),
     db.prepare(`CREATE TABLE IF NOT EXISTS alert_deliveries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       subscriber_id INTEGER NOT NULL,
@@ -85,5 +104,12 @@ export async function ensureDbSchema() {
     db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_public_signals_fund_url ON public_signals(fund_id, source_url)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_public_signals_latest ON public_signals(fund_id, published_at)"),
   ]);
+  await db.prepare(`INSERT OR IGNORE INTO refresh_runs
+    (id, trigger, scheduled_at, started_at, completed_at, status, reason, duration_ms)
+    SELECT 'legacy:' || value, 'legacy', NULL, value, updated_at, 'succeeded',
+      '部署历史：最近一次完整刷新', 0
+    FROM system_state
+    WHERE key = 'last_refresh' AND NOT EXISTS (SELECT 1 FROM refresh_runs)`)
+    .run();
   await db.prepare("PRAGMA optimize").run();
 }

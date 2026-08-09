@@ -24,7 +24,7 @@ export default async function AdminPage() {
         <div>
           <span>LONG / SHORT TRACKER</span>
           <h1>管理面板不可访问</h1>
-          <p>当前登录账号不在管理人员名单中。</p>
+          <p>当前登录账号不在管理员名单中。</p>
           <Link href="/">返回网站</Link>
         </div>
       </main>

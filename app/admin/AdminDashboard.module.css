@@ -124,7 +124,7 @@
   border-top: 5px solid #11110f;
   border-bottom: 1px solid #11110f;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .metrics article {
@@ -326,6 +326,37 @@
   text-transform: uppercase;
 }
 
+.runBadge {
+  display: inline-block;
+  min-width: 48px;
+  padding: 4px 7px;
+  border: 1px solid #777268;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-align: center;
+}
+
+.run_succeeded {
+  border-color: #2d8a58;
+  color: #2d8a58;
+}
+
+.run_skipped {
+  border-color: #9a6b1f;
+  color: #8a5a12;
+}
+
+.run_failed {
+  border-color: #9b2f24;
+  color: #9b2f24;
+}
+
+.run_running {
+  border-color: #315f8f;
+  color: #315f8f;
+}
+
 .delivery_sent {
   border-color: #2d8a58;
   color: #2d8a58;
@@ -428,7 +459,8 @@
   }
 
   .metrics article:nth-child(2),
-  .metrics article:nth-child(4) {
+  .metrics article:nth-child(4),
+  .metrics article:nth-child(6) {
     border-right: 0;
   }
 

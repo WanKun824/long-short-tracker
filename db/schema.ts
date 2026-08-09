@@ -43,6 +43,31 @@ export const systemState = sqliteTable("system_state", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const refreshRuns = sqliteTable(
+  "refresh_runs",
+  {
+    id: text("id").primaryKey(),
+    trigger: text("trigger").notNull().default("manual"),
+    scheduledAt: text("scheduled_at"),
+    startedAt: text("started_at").notNull(),
+    completedAt: text("completed_at"),
+    status: text("status").notNull().default("running"),
+    reason: text("reason"),
+    durationMs: integer("duration_ms"),
+    fundChecks: integer("fund_checks").notNull().default(0),
+    updatedFunds: integer("updated_funds").notNull().default(0),
+    publicSignalCount: integer("public_signal_count").notNull().default(0),
+    emailsSent: integer("emails_sent").notNull().default(0),
+    emailsFailed: integer("emails_failed").notNull().default(0),
+    error: text("error"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("idx_refresh_runs_started_at").on(table.startedAt),
+    index("idx_refresh_runs_status_started_at").on(table.status, table.startedAt),
+  ],
+);
+
 export const alertDeliveries = sqliteTable(
   "alert_deliveries",
   {
