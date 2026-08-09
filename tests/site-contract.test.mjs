@@ -16,11 +16,12 @@ test("ships all eight institutions with complete disclosed holdings", async () =
 });
 
 test("includes Chinese research, subscription and disclosure experiences", async () => {
-  const [page, profiles, refreshRoute, refreshWorker, refreshRunHistory, changes, subscriptionEmail, subscribe, status, adminPage, adminSummary, layout, sec13f, publicSignals, signalsEmail] = await Promise.all([
+  const [page, profiles, refreshRoute, refreshWorker, refreshSchedule, refreshRunHistory, changes, subscriptionEmail, subscribe, status, adminPage, adminSummary, layout, sec13f, publicSignals, signalsEmail] = await Promise.all([
     readFile(new URL("app/components/PortfolioExplorer.tsx", root), "utf8"),
     readFile(new URL("app/data/funds.ts", root), "utf8"),
     readFile(new URL("app/api/refresh/route.ts", root), "utf8"),
     readFile(new URL("app/lib/refreshHoldings.ts", root), "utf8"),
+    readFile(new URL("app/lib/refreshSchedule.ts", root), "utf8"),
     readFile(new URL("app/lib/refreshRunHistory.ts", root), "utf8"),
     readFile(new URL("app/lib/holdingChanges.ts", root), "utf8"),
     readFile(new URL("app/lib/subscriptionStatusEmail.ts", root), "utf8"),
@@ -53,6 +54,9 @@ test("includes Chinese research, subscription and disclosure experiences", async
   }
   assert.match(refreshRoute, /refreshHoldings/);
   assert.match(refreshWorker, /retryPendingAlerts/);
+  assert.match(refreshWorker, /alreadyCheckedOnHongKongDate/);
+  assert.doesNotMatch(refreshWorker, /CHECK_INTERVAL_MS/);
+  assert.match(refreshSchedule, /HONG_KONG_OFFSET_MS/);
   assert.match(refreshWorker, /DELIVERY_CLAIM_SQL/);
   assert.match(refreshRoute, /startRefreshRun/);
   assert.match(refreshRoute, /completeRefreshRun/);

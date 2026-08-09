@@ -105,7 +105,7 @@ function auditRefreshPayload(payload: unknown): RefreshAudit {
   if (asString(root.error)) throw new RefreshAuditError(`刷新接口失败：${asString(root.error)}`);
 
   if (root.skipped === true) {
-    if (root.reason !== "rate_limited") {
+    if (root.reason !== "already_checked_today" && root.reason !== "rate_limited") {
       throw new RefreshAuditError(`刷新被跳过：${asString(root.reason) || "原因未知"}`);
     }
     return {

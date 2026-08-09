@@ -75,7 +75,7 @@ Cache-Control: no-store
 - `publicSignals`：公开信源检查、新动态数量和连续错误计数。
 - `pendingAlertRetry`：历史失败邮件的重试结果。
 - `publicSignalDelivery`：公开动态摘要的发送、失败数量和邮件配置状态。
-- `skipped: true, reason: "rate_limited"`：24 小时窗口内已经刷新过，属于正常防重。
+- `skipped: true, reason: "already_checked_today"`：香港自然日内已经完成过刷新，属于正常防重；前一晚的刷新不会阻止次日 08:00 检查。
 
 返回 HTTP 500、机构数量不是 8、任一机构 `status=error`、连续信源错误或邮件投递失败，都会让 Cron Event 记为失败。
 
@@ -138,7 +138,7 @@ npx wrangler tail long-short-tracker
 - 每天香港时间 08:00、20:00：`0 */12 * * *`
 - 每天香港时间 09:00：`0 1 * * *`
 
-不要同时启用 Cloudflare Cron、GitHub Actions 和本地/Codex 定时任务，否则可能重复调用。业务接口有 24 小时防重，但仍应只保留一个正式调度器。
+不要同时启用 Cloudflare Cron、GitHub Actions 和本地/Codex 定时任务，否则可能重复调用。业务接口按香港自然日防重，但仍应只保留一个正式调度器。
 
 ## 密钥轮换
 

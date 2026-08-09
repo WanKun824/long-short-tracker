@@ -109,7 +109,7 @@ GDELT 只承担检索和发现，不自动成为可信来源。结果必须通�
 
 ### `GET /api/status`
 
-返回站点数据与邮件健康状态，`refreshIntervalHours` 当前为 `24`。
+返回站点数据与邮件健康状态。`refreshSchedule` 为 `daily_08_hong_kong`，`refreshGuard` 为 `hong_kong_calendar_day`；`refreshIntervalHours` 保留为 `24`，用于旧版界面兼容。
 
 ## 官方接口文档
 

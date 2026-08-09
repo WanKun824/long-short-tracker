@@ -76,7 +76,11 @@ export async function completeRefreshRun(context: RefreshRunContext, payload: un
   const skipped = root.skipped === true;
   const status = skipped ? "skipped" : reasons.length ? "failed" : "succeeded";
   const reason = skipped
-    ? root.reason === "rate_limited" ? "24小时内已经完整刷新，防止重复运行" : String(root.reason ?? "刷新被跳过")
+    ? root.reason === "already_checked_today"
+      ? "今天已按香港时间完成检查，防止同一自然日重复运行"
+      : root.reason === "rate_limited"
+        ? "24小时内已经完整刷新，防止重复运行"
+        : String(root.reason ?? "刷新被跳过")
     : reasons.join("；") || null;
   const completedAt = new Date().toISOString();
 

@@ -5,6 +5,7 @@ import { buildAlertEmail, summarizeChanges, type HoldingChanges } from "./holdin
 import { summarizePublicSignals, type DeepSeekDigest } from "./deepseekDigest";
 import { buildMarketSignalsEmail, type SignalEmailSection } from "./marketSignalsEmail";
 import { officialSourcesForFund, refreshPublicSignals, type PublicSignal } from "./publicSignals";
+import { alreadyCheckedOnHongKongDate } from "./refreshSchedule";
 import { fetchSecHoldingRows, readBoundedText, secHeaders } from "./sec13f";
 
 type Filing = {
@@ -32,7 +33,6 @@ type SubscriberRow = {
   created_at: string;
 };
 
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 const REFRESH_CAPABILITY_VERSION = "sec-edgar-signals-deepseek-v5";
 function quarterLabel(reportDate: string) {
   const [year, month] = reportDate.split("-").map(Number);
@@ -308,10 +308,14 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
     db.prepare("SELECT value FROM system_state WHERE key = 'last_refresh'").first<{ value: string }>(),
     db.prepare("SELECT value FROM system_state WHERE key = 'refresh_capability_version'").first<{ value: string }>(),
   ]);
-  const lastTimestamp = lastRefresh ? Date.parse(lastRefresh.value) : 0;
   const capabilityUpgradePending = capabilityVersion?.value !== REFRESH_CAPABILITY_VERSION;
-  if (!force && !capabilityUpgradePending && Date.now() - lastTimestamp < CHECK_INTERVAL_MS) {
-    return { skipped: true, reason: "rate_limited", checkedAt: lastRefresh?.value };
+  if (!force && !capabilityUpgradePending && alreadyCheckedOnHongKongDate(lastRefresh?.value)) {
+    return {
+      skipped: true,
+      reason: "already_checked_today",
+      checkedAt: lastRefresh?.value,
+      timeZone: "Asia/Hong_Kong",
+    };
   }
 
   const checkedAt = new Date().toISOString();

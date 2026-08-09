@@ -45,10 +45,10 @@ test("cloud scheduler authenticates the private refresh and audits all eight fun
   });
 });
 
-test("cloud scheduler accepts an intentional refresh rate-limit response", async () => {
+test("cloud scheduler accepts an intentional same Hong Kong day response", async () => {
   const audit = await runPrivateSiteRefresh(env, Date.now(), async () => Response.json({
     skipped: true,
-    reason: "rate_limited",
+    reason: "already_checked_today",
     checkedAt: "2026-08-04T00:00:00.000Z",
   }));
   assert.equal(audit.skipped, true);
