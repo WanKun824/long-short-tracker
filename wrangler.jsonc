@@ -26,9 +26,9 @@
     }
   ],
   "vars": {
-    "PUBLIC_SITE_URL": "https://long-short-tracker.master-van1995.workers.dev",
+    "PUBLIC_SITE_URL": "https://lst.vincenvan.cc",
     "ALERT_FROM_EMAIL": "LONG / SHORT TRACKER <alerts@vincenvan.cc>",
-    "SITES_REFRESH_URL": "https://holdings-lens-cn.zvcdg28tfj.chatgpt.site",
+    "SITES_REFRESH_URL": "https://lst.vincenvan.cc",
     "DEEPSEEK_BASE_URL": "https://api.deepseek.com",
     "DEEPSEEK_MODEL": "deepseek-v4-flash"
   },

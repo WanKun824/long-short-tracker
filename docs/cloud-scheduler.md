@@ -6,9 +6,9 @@ LONG / SHORT TRACKER 的定时任务运行在 Cloudflare Workers Cron Triggers�
 
 ```text
 Cloudflare Cron（每天 00:00 UTC）
-  → POST 私有 Sites /api/refresh
+  → POST https://lst.vincenvan.cc/api/refresh
   → SEC EDGAR 原始 13F + 官方/主流媒体公开信源
-  → 私有 Sites D1 写入快照与历史
+  → Cloudflare D1 long-short-tracker-db 写入快照与历史
   → 有新 13F 或重大公开动态时由 Resend 发邮件
   → Cloudflare Cron Events / Workers Logs 记录结果
 ```
@@ -25,7 +25,7 @@ Cloudflare Cron（每天 00:00 UTC）
 {
   "triggers": { "crons": ["0 0 * * *"] },
   "vars": {
-    "SITES_REFRESH_URL": "https://holdings-lens-cn.zvcdg28tfj.chatgpt.site"
+    "SITES_REFRESH_URL": "https://lst.vincenvan.cc"
   },
   "secrets": {
     "required": ["RESEND_API_KEY", "SITES_REFRESH_BEARER_TOKEN", "OPERATIONS_ALERT_EMAIL"]
@@ -60,10 +60,10 @@ Cloudflare 控制台路径：**Workers & Pages → long-short-tracker → Settin
 
 ### `POST /api/refresh`
 
-用途：执行完整刷新。云端调度器调用私有 Sites 地址，不调用公开 Worker 自己的数据库。
+用途：执行完整刷新。云端调度器调用正式域名，并与网站和管理面板共用同一个 D1 数据库。
 
 ```http
-POST https://holdings-lens-cn.zvcdg28tfj.chatgpt.site/api/refresh
+POST https://lst.vincenvan.cc/api/refresh
 OAI-Sites-Authorization: Bearer <SITES_REFRESH_BEARER_TOKEN>
 Accept: application/json
 Cache-Control: no-store
@@ -100,7 +100,7 @@ $headers = @{
   "OAI-Sites-Authorization" = "Bearer $env:SITES_REFRESH_BEARER_TOKEN"
   "Accept" = "application/json"
 }
-Invoke-RestMethod -Method Post -Uri "https://holdings-lens-cn.zvcdg28tfj.chatgpt.site/api/refresh" -Headers $headers
+Invoke-RestMethod -Method Post -Uri "https://lst.vincenvan.cc/api/refresh" -Headers $headers
 ```
 
 本地测试 scheduled handler：

@@ -4,7 +4,7 @@
 
 ## 当前运行方式
 
-Cloudflare Cron 每天 00:00 UTC（香港时间 08:00）调用私有 Sites 的 `POST /api/refresh`。电脑关机不会影响运行。
+Cloudflare Cron 每天 00:00 UTC（香港时间 08:00）调用 `https://lst.vincenvan.cc/api/refresh`。正式站点、管理面板和定时任务共用 Cloudflare D1 `long-short-tracker-db`，电脑关机不会影响运行。
 
 一次刷新分为两条相互独立的数据链：
 
