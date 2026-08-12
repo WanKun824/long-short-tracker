@@ -1,11 +1,6 @@
 const MAX_RESPONSE_BYTES = 1_000_000;
 const REFRESH_TIMEOUT_MS = 14 * 60 * 1_000;
 
-export type CloudSchedulerEnv = {
-  SITES_REFRESH_URL: string;
-  SITES_REFRESH_BEARER_TOKEN: string;
-};
-
 export type SchedulerAlertEnv = {
   RESEND_API_KEY: string;
   ALERT_FROM_EMAIL: string;
@@ -22,6 +17,8 @@ export type RefreshAudit = {
   publicSignalCount: number;
   emailsSent: number;
 };
+
+export type RefreshHandler = (request: Request) => Promise<Response>;
 
 export class RefreshAuditError extends Error {
   readonly noRetry: boolean;
@@ -84,19 +81,6 @@ async function readBoundedJson(response: Response, maxBytes = MAX_RESPONSE_BYTES
   } catch {
     throw new RefreshAuditError("刷新接口返回了无效 JSON", false);
   }
-}
-
-function configuredRefreshUrl(value: string) {
-  let url: URL;
-  try {
-    url = new URL("/api/refresh", value);
-  } catch {
-    throw new RefreshAuditError("SITES_REFRESH_URL 配置无效");
-  }
-  if (url.protocol !== "https:") {
-    throw new RefreshAuditError("SITES_REFRESH_URL 必须使用 HTTPS");
-  }
-  return url;
 }
 
 function auditRefreshPayload(payload: unknown): RefreshAudit {
@@ -164,31 +148,26 @@ function auditRefreshPayload(payload: unknown): RefreshAudit {
   };
 }
 
-export async function runPrivateSiteRefresh(
-  env: CloudSchedulerEnv,
+export async function runScheduledRefresh(
   scheduledTime: number,
-  fetcher: typeof fetch = fetch,
+  refreshHandler: RefreshHandler,
 ): Promise<RefreshAudit> {
-  if (!env.SITES_REFRESH_BEARER_TOKEN?.trim()) {
-    throw new RefreshAuditError("缺少 SITES_REFRESH_BEARER_TOKEN");
-  }
-  const url = configuredRefreshUrl(env.SITES_REFRESH_URL);
-  const response = await fetcher(url, {
+  const request = new Request("https://long-short-tracker.internal/api/refresh", {
     method: "POST",
     headers: {
       accept: "application/json",
       "cache-control": "no-store",
-      "OAI-Sites-Authorization": `Bearer ${env.SITES_REFRESH_BEARER_TOKEN}`,
-      "user-agent": "LONG-SHORT-TRACKER-Cloud-Scheduler/1.0",
+      "user-agent": "LONG-SHORT-TRACKER-Cloud-Scheduler/2.0",
       "x-scheduled-time": new Date(scheduledTime).toISOString(),
     },
     signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
   });
+  const response = await refreshHandler(request);
   const payload = await readBoundedJson(response);
   if (!response.ok) {
     const root = asRecord(payload);
     const detail = asString(root?.error) || `HTTP ${response.status}`;
-    throw new RefreshAuditError(`私有站点刷新请求失败：${detail}`, response.status >= 400 && response.status < 500);
+    throw new RefreshAuditError(`刷新处理失败：${detail}`, response.status >= 400 && response.status < 500);
   }
   return auditRefreshPayload(payload);
 }

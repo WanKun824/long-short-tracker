@@ -6,7 +6,7 @@ LONG / SHORT TRACKER 的定时任务运行在 Cloudflare Workers Cron Triggers�
 
 ```text
 Cloudflare Cron（每天 00:00 UTC）
-  → POST https://lst.vincenvan.cc/api/refresh
+  → Worker 内部直接调用刷新处理器（不经过公网 HTTP）
   → SEC EDGAR 原始 13F + 官方/主流媒体公开信源
   → Cloudflare D1 long-short-tracker-db 写入快照与历史
   → 有新 13F 或重大公开动态时由 Resend 发邮件
@@ -24,16 +24,11 @@ Cloudflare Cron（每天 00:00 UTC）
 ```jsonc
 {
   "triggers": { "crons": ["0 0 * * *"] },
-  "vars": {
-    "SITES_REFRESH_URL": "https://lst.vincenvan.cc"
-  },
   "secrets": {
-    "required": ["RESEND_API_KEY", "SITES_REFRESH_BEARER_TOKEN", "OPERATIONS_ALERT_EMAIL"]
+    "required": ["RESEND_API_KEY", "OPERATIONS_ALERT_EMAIL", "DEEPSEEK_API_KEY"]
   }
 }
 ```
-
-`SITES_REFRESH_BEARER_TOKEN` 是私有 Sites 的 SIWC bypass token，只保存在 Cloudflare encrypted secret 中，不能写进 GitHub、日志或 `.env` 文件。
 
 `OPERATIONS_ALERT_EMAIL` 是只接收故障告警的管理员邮箱，同样作为 encrypted secret 保存。正常刷新不发送运维邮件；刷新失败、8 家机构检查不完整、连续信源错误或邮件投递失败时才发送。告警使用计划时间作为 Resend idempotency key，避免同一次任务重复发信。
 
@@ -44,15 +39,13 @@ Cloudflare Cron（每天 00:00 UTC）
 ```powershell
 npm ci
 npx wrangler login
-npx wrangler secret put SITES_REFRESH_BEARER_TOKEN
 npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put DEEPSEEK_API_KEY
 npx wrangler secret put OPERATIONS_ALERT_EMAIL
 npm test
 npx tsc --noEmit
 npx wrangler deploy
 ```
-
-在 `SITES_REFRESH_BEARER_TOKEN` 提示中粘贴私有 Sites 项目的 bypass token。获取方式：通过 Sites 管理接口读取项目；若项目没有 token，调用“生成 SIWC bypass token”接口。生成新 token 会立即作废旧 token，因此随后必须重新执行 `wrangler secret put SITES_REFRESH_BEARER_TOKEN`。
 
 Cloudflare 控制台路径：**Workers & Pages → long-short-tracker → Settings → Triggers → Cron Triggers**。应看到 `0 0 * * *`。
 
@@ -60,11 +53,10 @@ Cloudflare 控制台路径：**Workers & Pages → long-short-tracker → Settin
 
 ### `POST /api/refresh`
 
-用途：执行完整刷新。云端调度器调用正式域名，并与网站和管理面板共用同一个 D1 数据库。
+用途：执行完整刷新。外部手动调用可使用正式域名；云端定时器在 Worker 内部直接运行相同处理器，与网站和管理面板共用同一个 D1 数据库。
 
 ```http
 POST https://lst.vincenvan.cc/api/refresh
-OAI-Sites-Authorization: Bearer <SITES_REFRESH_BEARER_TOKEN>
 Accept: application/json
 Cache-Control: no-store
 ```
@@ -96,10 +88,7 @@ Cache-Control: no-store
 生产环境可以直接测试同一个业务接口：
 
 ```powershell
-$headers = @{
-  "OAI-Sites-Authorization" = "Bearer $env:SITES_REFRESH_BEARER_TOKEN"
-  "Accept" = "application/json"
-}
+$headers = @{ "Accept" = "application/json" }
 Invoke-RestMethod -Method Post -Uri "https://lst.vincenvan.cc/api/refresh" -Headers $headers
 ```
 
@@ -124,8 +113,8 @@ npx wrangler tail long-short-tracker
 
 排查顺序：
 
-1. `401/403`：私有 Sites token 失效；重新获取并更新 `SITES_REFRESH_BEARER_TOKEN`。
-2. HTTP 500：查看私有 Sites Worker Logs，重点检查 D1、SEC、Resend 环境变量。
+1. 定时器立即失败且日志出现 522/无效 JSON：检查是否误改为通过自定义域名请求 Worker 自身；正式调度必须使用内部处理器。
+2. HTTP 500：查看 `long-short-tracker` Worker Logs，重点检查 D1、SEC、Resend 环境变量。
 3. 机构检查不足 8 家：检查 SEC EDGAR 返回与对应 CIK。
 4. 连续信源错误：检查官方 RSS、X API（若配置）和主流媒体信源；单个备用源暂时失败不等同于整套信源失败。
 5. 邮件失败：在管理面板和 `alert_deliveries` 统计中查看错误，核对 Resend 域名、API key 和发件地址。
@@ -142,9 +131,6 @@ npx wrangler tail long-short-tracker
 
 ## 密钥轮换
 
-1. 在 Sites 管理接口生成新的 SIWC bypass token；旧 token 会立即失效。
-2. 运行 `npx wrangler secret put SITES_REFRESH_BEARER_TOKEN`。
-3. 手动调用一次 `/api/refresh`，确认不再返回 401/403。
-4. 在 Cloudflare Cron Events 中确认下一次计划任务成功。
+轮换 Resend 或 DeepSeek 密钥后，分别运行 `npx wrangler secret put RESEND_API_KEY` 或 `npx wrangler secret put DEEPSEEK_API_KEY`，再检查 `/api/status` 与下一次 Cron Event。
 
-任何命令输出、截图、工单和 GitHub 文档都不得包含 token 或 Resend API key。
+任何命令输出、截图、工单和 GitHub 文档都不得包含 API key。

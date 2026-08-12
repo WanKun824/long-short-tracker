@@ -4,7 +4,7 @@
 
 ## 当前运行方式
 
-Cloudflare Cron 每天 00:00 UTC（香港时间 08:00）调用 `https://lst.vincenvan.cc/api/refresh`。正式站点、管理面板和定时任务共用 Cloudflare D1 `long-short-tracker-db`，电脑关机不会影响运行。
+Cloudflare Cron 每天 00:00 UTC（香港时间 08:00）在 Worker 内部直接运行刷新处理器。正式站点、管理面板和定时任务共用 Cloudflare D1 `long-short-tracker-db`，电脑关机不会影响运行。
 
 一次刷新分为两条相互独立的数据链：
 
@@ -86,13 +86,12 @@ GDELT 只承担检索和发现，不自动成为可信来源。结果必须通�
 
 - `DEEPSEEK_API_KEY`：DeepSeek API 密钥
 - `RESEND_API_KEY`：Resend 邮件密钥
-- `SITES_REFRESH_BEARER_TOKEN`：私有 Sites 调用令牌
 
 非敏感值：
 
 - `DEEPSEEK_BASE_URL=https://api.deepseek.com`
 - `DEEPSEEK_MODEL=deepseek-v4-flash`
-- `ALERT_FROM_EMAIL`、`PUBLIC_SITE_URL`、`SITES_REFRESH_URL`
+- `ALERT_FROM_EMAIL`、`PUBLIC_SITE_URL`
 
 密钥不得写入 GitHub、`wrangler.jsonc`、`.env`、测试数据或日志。已经在聊天或其他明文位置出现过的密钥，应在部署验证后轮换。
 

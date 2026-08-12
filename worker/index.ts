@@ -1,14 +1,13 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
-import { RefreshAuditError, runPrivateSiteRefresh, sendSchedulerFailureAlert } from "./cloudScheduler";
+import { POST as refreshRoutePost } from "../app/api/refresh/route";
+import { RefreshAuditError, runScheduledRefresh, sendSchedulerFailureAlert } from "./cloudScheduler";
 
 type RuntimeEnv = Env & {
   ASSETS: Fetcher;
   DB: D1Database;
   IMAGES: ImagesBinding;
-  SITES_REFRESH_URL: string;
-  SITES_REFRESH_BEARER_TOKEN: string;
   RESEND_API_KEY: string;
   ALERT_FROM_EMAIL: string;
   OPERATIONS_ALERT_EMAIL: string;
@@ -58,7 +57,7 @@ const worker = {
 
   async scheduled(controller: ScheduledController, env: RuntimeEnv, ctx: ExecutionContext): Promise<void> {
     const startedAt = Date.now();
-    const task = runPrivateSiteRefresh(env, controller.scheduledTime)
+    const task = runScheduledRefresh(controller.scheduledTime, refreshRoutePost)
       .then((audit) => {
         console.log(JSON.stringify({
           event: "cloud_refresh_succeeded",
