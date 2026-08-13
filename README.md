@@ -66,7 +66,8 @@ npm test
 The application supports these server-side environment variables:
 
 - `PUBLIC_SITE_URL`: canonical deployed URL
-- `ADMIN_EMAIL`: comma-separated administrator allowlist
+- `ADMIN_PASSWORD`: password for the private management panel
+- `ADMIN_SESSION_SECRET`: long random secret used to sign 24-hour management sessions
 - `RESEND_API_KEY`: transactional email provider credential
 - `ALERT_FROM_EMAIL`: verified sender address
 - `REFRESH_SECRET`: optional authorization secret for scheduled refresh requests

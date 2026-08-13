@@ -87,7 +87,7 @@ function parseChanges(value: string) {
 
 export async function GET(request: Request) {
   const runtime = getRuntimeEnv();
-  if (!isAdminRequest(request.headers, runtime.ADMIN_EMAIL)) {
+  if (!await isAdminRequest(request.headers, runtime.ADMIN_SESSION_SECRET)) {
     return Response.json({ error: "无权访问管理数据" }, { status: 403 });
   }
 

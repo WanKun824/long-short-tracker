@@ -138,7 +138,11 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
     <main className={styles.shell}>
       <header className={styles.topbar}>
         <Link href="/">LONG / SHORT TRACKER</Link>
-        <div><span>ADMIN</span><small>{viewerEmail}</small></div>
+        <div>
+          <span>ADMIN</span>
+          <small>{viewerEmail}</small>
+          <form method="post" action="/api/admin/logout"><button type="submit">退出</button></form>
+        </div>
       </header>
 
       <section className={styles.heading}>

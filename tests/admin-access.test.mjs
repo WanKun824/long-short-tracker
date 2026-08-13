@@ -1,32 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getAdminEmails, getAuthenticatedEmail, isAdminRequest } from "../app/lib/adminAccess.ts";
+import {
+  adminSessionCookie,
+  createAdminSession,
+  isAdminRequest,
+  verifyAdminPassword,
+} from "../app/lib/adminAccess.ts";
 
-test("allows only an authenticated configured administrator", () => {
-  const allowed = "owner@example.com, second@example.com";
-  const owner = new Headers({
-    "oai-authenticated-user-id": "user-1",
-    "oai-authenticated-user-email": "Owner@Example.com",
-  });
-  const stranger = new Headers({
-    "oai-authenticated-user-id": "user-2",
-    "oai-authenticated-user-email": "other@example.com",
-  });
-  const spoofed = new Headers({ "oai-authenticated-user-email": "owner@example.com" });
-  const cloudflareOwner = new Headers({
-    "cf-access-jwt-assertion": "signed-access-token",
-    "cf-access-authenticated-user-email": "Owner@Example.com",
-  });
-  const spoofedCloudflareEmail = new Headers({
-    "cf-access-authenticated-user-email": "owner@example.com",
-  });
+test("verifies the configured password without accepting close values", async () => {
+  assert.equal(await verifyAdminPassword("correct horse", "correct horse"), true);
+  assert.equal(await verifyAdminPassword("correct Horse", "correct horse"), false);
+  assert.equal(await verifyAdminPassword("", "correct horse"), false);
+  assert.equal(await verifyAdminPassword("correct horse", undefined), false);
+});
 
-  assert.deepEqual([...getAdminEmails(allowed)], ["owner@example.com", "second@example.com"]);
-  assert.equal(getAuthenticatedEmail(owner), "owner@example.com");
-  assert.equal(isAdminRequest(owner, allowed), true);
-  assert.equal(isAdminRequest(stranger, allowed), false);
-  assert.equal(isAdminRequest(spoofed, allowed), false);
-  assert.equal(getAuthenticatedEmail(cloudflareOwner), "owner@example.com");
-  assert.equal(isAdminRequest(cloudflareOwner, allowed), true);
-  assert.equal(isAdminRequest(spoofedCloudflareEmail, allowed), false);
+test("accepts only a valid unexpired signed admin session", async () => {
+  const secret = "test-secret-that-is-long-enough";
+  const issuedAt = Date.parse("2026-08-13T00:00:00Z");
+  const token = await createAdminSession(secret, issuedAt);
+  const cookie = adminSessionCookie(token).split(";", 1)[0];
+  const authenticated = new Headers({ cookie });
+  const tampered = new Headers({ cookie: `${cookie}x` });
+
+  assert.equal(await isAdminRequest(authenticated, secret, issuedAt + 1_000), true);
+  assert.equal(await isAdminRequest(tampered, secret, issuedAt + 1_000), false);
+  assert.equal(await isAdminRequest(authenticated, "wrong-secret", issuedAt + 1_000), false);
+  assert.equal(await isAdminRequest(authenticated, secret, issuedAt + 25 * 60 * 60 * 1_000), false);
 });

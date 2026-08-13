@@ -8,7 +8,8 @@ type RuntimeEnv = {
   ALERT_FROM_EMAIL?: string;
   PUBLIC_SITE_URL?: string;
   REFRESH_SECRET?: string;
-  ADMIN_EMAIL?: string;
+  ADMIN_PASSWORD?: string;
+  ADMIN_SESSION_SECRET?: string;
   X_BEARER_TOKEN?: string;
   DEEPSEEK_API_KEY?: string;
   DEEPSEEK_BASE_URL?: string;
@@ -44,6 +45,11 @@ export async function ensureDbSchema() {
     db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email)"),
     db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_subscribers_token ON subscribers(unsubscribe_token)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_subscribers_status ON subscribers(status)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS admin_login_attempts (
+      attempt_key TEXT PRIMARY KEY,
+      failures INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS fund_snapshots (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       fund_id TEXT NOT NULL,
