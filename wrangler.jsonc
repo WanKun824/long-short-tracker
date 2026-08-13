@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
   "secrets": {
-    "required": ["RESEND_API_KEY", "OPERATIONS_ALERT_EMAIL", "DEEPSEEK_API_KEY"]
+    "required": ["RESEND_API_KEY", "OPERATIONS_ALERT_EMAIL", "DEEPSEEK_API_KEY", "ADMIN_EMAIL"]
   },
   "triggers": {
     "crons": ["0 0 * * *"]

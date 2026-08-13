@@ -13,10 +13,20 @@ test("allows only an authenticated configured administrator", () => {
     "oai-authenticated-user-email": "other@example.com",
   });
   const spoofed = new Headers({ "oai-authenticated-user-email": "owner@example.com" });
+  const cloudflareOwner = new Headers({
+    "cf-access-jwt-assertion": "signed-access-token",
+    "cf-access-authenticated-user-email": "Owner@Example.com",
+  });
+  const spoofedCloudflareEmail = new Headers({
+    "cf-access-authenticated-user-email": "owner@example.com",
+  });
 
   assert.deepEqual([...getAdminEmails(allowed)], ["owner@example.com", "second@example.com"]);
   assert.equal(getAuthenticatedEmail(owner), "owner@example.com");
   assert.equal(isAdminRequest(owner, allowed), true);
   assert.equal(isAdminRequest(stranger, allowed), false);
   assert.equal(isAdminRequest(spoofed, allowed), false);
+  assert.equal(getAuthenticatedEmail(cloudflareOwner), "owner@example.com");
+  assert.equal(isAdminRequest(cloudflareOwner, allowed), true);
+  assert.equal(isAdminRequest(spoofedCloudflareEmail, allowed), false);
 });

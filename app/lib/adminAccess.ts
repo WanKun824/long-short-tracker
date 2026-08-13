@@ -8,12 +8,19 @@ export function getAdminEmails(value: string | undefined) {
 }
 
 export function isAdminRequest(headers: Headers, configuredEmails: string | undefined) {
-  const userId = headers.get("oai-authenticated-user-id")?.trim();
-  const userEmail = headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
-  if (!userId || !userEmail) return false;
+  const userEmail = getAuthenticatedEmail(headers);
+  if (!userEmail) return false;
   return getAdminEmails(configuredEmails).has(userEmail);
 }
 
 export function getAuthenticatedEmail(headers: Headers) {
-  return headers.get("oai-authenticated-user-email")?.trim().toLowerCase() ?? null;
+  const openAiUserId = headers.get("oai-authenticated-user-id")?.trim();
+  const openAiEmail = headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
+  if (openAiUserId && openAiEmail) return openAiEmail;
+
+  const accessJwt = headers.get("cf-access-jwt-assertion")?.trim();
+  const accessEmail = headers.get("cf-access-authenticated-user-email")?.trim().toLowerCase();
+  if (accessJwt && accessEmail) return accessEmail;
+
+  return null;
 }
