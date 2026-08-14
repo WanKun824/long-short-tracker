@@ -14,6 +14,12 @@ type FilingDirectoryItem = {
   size: number;
 };
 
+type RawHolding = Omit<Holding, "valueK" | "weight"> & {
+  rawValue: number;
+};
+
+export const SEC_PARSER_VERSION = "sec-values-v2";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -65,9 +71,41 @@ function referenceTicker(reference: Holding[], cusip: string, option: Holding["o
     ?? cusip;
 }
 
+function holdingKey(cusip: string, option: Holding["option"]) {
+  return `${cusip}|${option ?? ""}`;
+}
+
+function median(values: number[]) {
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
+}
+
+function valueDivisor(rows: RawHolding[], reference: Holding[]) {
+  const referenceValues = new Map<string, number>();
+  for (const row of reference) {
+    const key = holdingKey(row.cusip, row.option);
+    referenceValues.set(key, (referenceValues.get(key) ?? 0) + row.valueK);
+  }
+
+  const dollarScores: number[] = [];
+  const legacyThousandScores: number[] = [];
+  for (const row of rows) {
+    const priorValueK = referenceValues.get(holdingKey(row.cusip, row.option));
+    if (!priorValueK || priorValueK <= 0 || row.rawValue <= 0) continue;
+    dollarScores.push(Math.abs(Math.log10((row.rawValue / 1_000) / priorValueK)));
+    legacyThousandScores.push(Math.abs(Math.log10(row.rawValue / priorValueK)));
+  }
+
+  if (!dollarScores.length) return 1_000;
+  return median(legacyThousandScores) + 0.75 < median(dollarScores) ? 1 : 1_000;
+}
+
 export function parseInformationTableXml(xml: string, tickerReference: Holding[] = []): Holding[] {
   const blocks = [...xml.matchAll(/<(?:(?:[A-Za-z0-9_-]+):)?infoTable(?:\s[^>]*)?>([\s\S]*?)<\/(?:(?:[A-Za-z0-9_-]+):)?infoTable\s*>/gi)];
-  const aggregate = new Map<string, Omit<Holding, "weight">>();
+  const aggregate = new Map<string, RawHolding>();
 
   for (const match of blocks) {
     const block = match[1];
@@ -81,13 +119,12 @@ export function parseInformationTableXml(xml: string, tickerReference: Holding[]
     const option: Holding["option"] = rawOption === "PUT" || rawOption === "CALL" ? rawOption : null;
     if (!cusip || !Number.isFinite(rawValue) || rawValue < 0) continue;
 
-    const key = `${cusip}|${option ?? ""}`;
-    const valueK = rawValue / 1_000;
+    const key = holdingKey(cusip, option);
     const shares = amountType === "SH" && Number.isFinite(rawAmount) ? rawAmount : null;
     const principal = amountType === "PRN" && Number.isFinite(rawAmount) ? rawAmount : null;
     const current = aggregate.get(key);
     if (current) {
-      current.valueK += valueK;
+      current.rawValue += rawValue;
       current.shares = current.shares === null ? shares : current.shares + (shares ?? 0);
       current.principal = current.principal === null ? principal : current.principal + (principal ?? 0);
       continue;
@@ -98,14 +135,19 @@ export function parseInformationTableXml(xml: string, tickerReference: Holding[]
       issuer,
       class: titleClass,
       cusip,
-      valueK,
+      rawValue,
       shares,
       principal,
       option,
     });
   }
 
-  const rows = [...aggregate.values()];
+  const rawRows = [...aggregate.values()];
+  const divisor = valueDivisor(rawRows, tickerReference);
+  const rows = rawRows.map(({ rawValue, ...row }) => ({
+    ...row,
+    valueK: rawValue / divisor,
+  }));
   const totalValueK = rows.reduce((sum, row) => sum + row.valueK, 0);
   return rows
     .map((row) => ({

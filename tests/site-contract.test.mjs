@@ -16,7 +16,7 @@ test("ships all eight institutions with complete disclosed holdings", async () =
 });
 
 test("includes Chinese research, subscription and disclosure experiences", async () => {
-  const [page, profiles, refreshRoute, refreshWorker, refreshSchedule, refreshRunHistory, changes, subscriptionEmail, subscribe, status, adminPage, adminSummary, layout, sec13f, publicSignals, signalsEmail] = await Promise.all([
+  const [page, profiles, refreshRoute, refreshWorker, refreshSchedule, refreshRunHistory, changes, subscriptionEmail, subscribe, status, holdingsRoute, adminPage, adminSummary, layout, sec13f, publicSignals, signalsEmail] = await Promise.all([
     readFile(new URL("app/components/PortfolioExplorer.tsx", root), "utf8"),
     readFile(new URL("app/data/funds.ts", root), "utf8"),
     readFile(new URL("app/api/refresh/route.ts", root), "utf8"),
@@ -27,6 +27,7 @@ test("includes Chinese research, subscription and disclosure experiences", async
     readFile(new URL("app/lib/subscriptionStatusEmail.ts", root), "utf8"),
     readFile(new URL("app/api/subscribe/route.ts", root), "utf8"),
     readFile(new URL("app/api/status/route.ts", root), "utf8"),
+    readFile(new URL("app/api/holdings/route.ts", root), "utf8"),
     readFile(new URL("app/admin/page.tsx", root), "utf8"),
     readFile(new URL("app/api/admin/summary/route.ts", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
@@ -76,6 +77,9 @@ test("includes Chinese research, subscription and disclosure experiences", async
   assert.match(page, /邮件提醒/);
   assert.match(status, /emailReady/);
   assert.match(status, /lastRefreshAt/);
+  assert.match(holdingsRoute, /filed_at/);
+  assert.match(page, /payload\.snapshots/);
+  assert.match(page, /最新已披露季度/);
   assert.match(adminPage, /isAdminRequest/);
   assert.match(adminSummary, /dailySignups/);
   assert.match(adminSummary, /dataHistory/);

@@ -4,15 +4,20 @@ import { FormEvent, useEffect, useMemo, useRef, useState, type CSSProperties } f
 import {
   funds,
   holdings as initialHoldings,
-  totalHoldingRows,
-  totalValueBn,
   type FundProfile,
   type Holding,
 } from "../data/funds";
 
 type SortMode = "value" | "concentration" | "holdings";
+type SnapshotMetadata = {
+  period: string;
+  accession: string;
+  filedAt: string;
+  checkedAt: string;
+};
 type DynamicPayload = {
   holdings?: Partial<Record<FundProfile["id"], Holding[]>>;
+  snapshots?: Partial<Record<FundProfile["id"], SnapshotMetadata>>;
 };
 type ServiceStatus = {
   dataReady: boolean;
@@ -57,6 +62,14 @@ function formatCheckedAt(value: string | null) {
     minute: "2-digit",
     hour12: false,
   }).format(date);
+}
+
+function filingSource(fund: FundProfile, accession: string) {
+  const compact = accession.replace(/\D/gu, "");
+  if (compact.length !== 18) return fund.filingSource;
+  const cik = fund.cik.replace(/^0+/u, "") || "0";
+  const dashed = `${compact.slice(0, 10)}-${compact.slice(10, 12)}-${compact.slice(12)}`;
+  return `https://www.sec.gov/Archives/edgar/data/${cik}/${compact}/${dashed}-index.html`;
 }
 
 function initials(name: string) {
@@ -279,8 +292,9 @@ export function PortfolioExplorer() {
   const [activeCategory, setActiveCategory] = useState("全部");
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("value");
-  const [selectedFund, setSelectedFund] = useState<FundProfile | null>(null);
+  const [selectedFundId, setSelectedFundId] = useState<FundProfile["id"] | null>(null);
   const [liveHoldings, setLiveHoldings] = useState(initialHoldings);
+  const [liveSnapshots, setLiveSnapshots] = useState<DynamicPayload["snapshots"]>({});
   const [email, setEmail] = useState("");
   const [selectedIds, setSelectedIds] = useState<FundProfile["id"][]>(funds.map((fund) => fund.id));
   const [subscribeState, setSubscribeState] = useState<"idle" | "sending" | "success" | "error">("idle");
@@ -302,6 +316,7 @@ export function PortfolioExplorer() {
           if (!cancelled && payload.holdings && Object.keys(payload.holdings).length) {
             setLiveHoldings((current) => ({ ...current, ...payload.holdings }));
           }
+          if (!cancelled && payload.snapshots) setLiveSnapshots(payload.snapshots);
         }
         if (statusResponse.ok) {
           const status = (await statusResponse.json()) as ServiceStatus;
@@ -318,9 +333,33 @@ export function PortfolioExplorer() {
     };
   }, []);
 
+  const liveFunds = useMemo(() => funds.map((fund) => {
+    const rows = liveHoldings[fund.id] ?? [];
+    const snapshot = liveSnapshots?.[fund.id];
+    return {
+      ...fund,
+      period: snapshot?.period ?? fund.period,
+      filingDate: snapshot?.filedAt ?? fund.filingDate,
+      filingSource: snapshot ? filingSource(fund, snapshot.accession) : fund.filingSource,
+      valueBn: rows.reduce((sum, row) => sum + row.valueK, 0) / 1_000_000,
+      holdingCount: rows.length,
+      top5: rows.slice(0, 5).reduce((sum, row) => sum + row.weight, 0),
+    };
+  }), [liveHoldings, liveSnapshots]);
+
+  const selectedFund = selectedFundId
+    ? liveFunds.find((fund) => fund.id === selectedFundId) ?? null
+    : null;
+  const latestPeriod = liveFunds.reduce(
+    (latest, fund) => fund.period > latest ? fund.period : latest,
+    "",
+  );
+  const liveTotalValueBn = liveFunds.reduce((sum, fund) => sum + fund.valueBn, 0);
+  const liveTotalHoldingRows = liveFunds.reduce((sum, fund) => sum + fund.holdingCount, 0);
+
   const visibleFunds = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return funds
+    return liveFunds
       .filter((fund) => activeCategory === "全部" || fund.category === activeCategory)
       .filter((fund) => {
         if (!query) return true;
@@ -337,7 +376,7 @@ export function PortfolioExplorer() {
         if (sortMode === "holdings") return b.holdingCount - a.holdingCount;
         return b.valueBn - a.valueBn;
       });
-  }, [activeCategory, liveHoldings, search, sortMode]);
+  }, [activeCategory, liveFunds, liveHoldings, search, sortMode]);
 
   function toggleSubscription(id: FundProfile["id"]) {
     setSelectedIds((current) =>
@@ -371,8 +410,8 @@ export function PortfolioExplorer() {
     <main>
       <div className="market-strip" aria-label="数据状态">
         <span><i /> LONG / SHORT TRACKER · SEC公开申报数据</span>
-        <span>最新完整季度 2026 Q1</span>
-        <span>Q2申报截止 2026-08-14</span>
+        <span>最新已披露季度 {latestPeriod}</span>
+        <span>每日 08:00（香港时间）检查</span>
         <span>资料源 SEC EDGAR</span>
       </div>
 
@@ -405,8 +444,8 @@ export function PortfolioExplorer() {
           </div>
           <div className="hero-metrics">
             <div><strong>8</strong><span>家代表性机构</span></div>
-            <div><strong>${totalValueBn.toFixed(1)}B</strong><span>披露证券市值</span></div>
-            <div><strong>{totalHoldingRows}</strong><span>项持仓记录</span></div>
+            <div><strong>${liveTotalValueBn.toFixed(1)}B</strong><span>披露证券市值</span></div>
+            <div><strong>{liveTotalHoldingRows}</strong><span>项持仓记录</span></div>
           </div>
         </div>
 
@@ -546,7 +585,7 @@ export function PortfolioExplorer() {
 
                 <div className="fund-card__footer">
                   <span>{fund.period} · {fund.style}</span>
-                  <button onClick={() => setSelectedFund(fund)}>查看完整持仓 <span>↗</span></button>
+                  <button onClick={() => setSelectedFundId(fund.id)}>查看完整持仓 <span>↗</span></button>
                 </div>
               </article>
             );
@@ -579,8 +618,8 @@ export function PortfolioExplorer() {
             <div className="strategy-table__head">
               <span>机构</span><span>核心风格</span><span>前五集中度</span><span>持仓数</span>
             </div>
-            {funds.map((fund) => (
-              <button key={fund.id} onClick={() => setSelectedFund(fund)}>
+            {liveFunds.map((fund) => (
+              <button key={fund.id} onClick={() => setSelectedFundId(fund.id)}>
                 <span className="strategy-name"><i style={{ background: fund.accent }} />{fund.nameZh}</span>
                 <span>{fund.style}</span>
                 <span className="strategy-bar">
@@ -722,7 +761,7 @@ export function PortfolioExplorer() {
         <FundModal
           fund={selectedFund}
           rows={liveHoldings[selectedFund.id]}
-          onClose={() => setSelectedFund(null)}
+          onClose={() => setSelectedFundId(null)}
         />
       )}
     </main>

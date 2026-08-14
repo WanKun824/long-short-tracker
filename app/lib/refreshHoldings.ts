@@ -6,7 +6,7 @@ import { summarizePublicSignals, type DeepSeekDigest } from "./deepseekDigest";
 import { buildMarketSignalsEmail, type SignalEmailSection } from "./marketSignalsEmail";
 import { officialSourcesForFund, refreshPublicSignals, type PublicSignal } from "./publicSignals";
 import { alreadyCheckedOnHongKongDate } from "./refreshSchedule";
-import { fetchSecHoldingRows, readBoundedText, secHeaders } from "./sec13f";
+import { fetchSecHoldingRows, readBoundedText, SEC_PARSER_VERSION, secHeaders } from "./sec13f";
 
 type Filing = {
   accession: string;
@@ -33,7 +33,7 @@ type SubscriberRow = {
   created_at: string;
 };
 
-const REFRESH_CAPABILITY_VERSION = "sec-edgar-signals-deepseek-v5";
+const REFRESH_CAPABILITY_VERSION = "sec-edgar-signals-deepseek-v6";
 function quarterLabel(reportDate: string) {
   const [year, month] = reportDate.split("-").map(Number);
   return `${year} Q${Math.ceil(month / 3)}`;
@@ -331,10 +331,11 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
         .first<SnapshotRow>();
       if (previous?.accession === latest.accession) {
         const sourceMarkerKey = `sec_source_accession:${fund.id}`;
+        const expectedSourceMarker = `${SEC_PARSER_VERSION}:${latest.accession}`;
         const sourceMarker = await db.prepare("SELECT value FROM system_state WHERE key = ?")
           .bind(sourceMarkerKey)
           .first<{ value: string }>();
-        if (sourceMarker?.value === latest.accession) {
+        if (sourceMarker?.value === expectedSourceMarker) {
           results.push({ fundId: fund.id, status: "unchanged", accession: latest.accession, source: "sec_edgar" });
           continue;
         }
@@ -350,7 +351,7 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
           .run();
         await db.prepare(`INSERT INTO system_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`)
-          .bind(sourceMarkerKey, latest.accession)
+          .bind(sourceMarkerKey, expectedSourceMarker)
           .run();
         results.push({ fundId: fund.id, status: "revalidated_sec", accession: latest.accession, source: "sec_edgar" });
         continue;
@@ -379,7 +380,7 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
         .run();
       await db.prepare(`INSERT INTO system_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`)
-        .bind(`sec_source_accession:${fund.id}`, latest.accession)
+        .bind(`sec_source_accession:${fund.id}`, `${SEC_PARSER_VERSION}:${latest.accession}`)
         .run();
       const delivery = previous
         ? await sendAlerts(fund, latest, changes, checkedAt)
