@@ -30,7 +30,7 @@ Cloudflare Cron（每天 00:00 UTC）
 }
 ```
 
-`OPERATIONS_ALERT_EMAIL` 是只接收故障告警的管理员邮箱，同样作为 encrypted secret 保存。正常刷新不发送运维邮件；刷新失败、8 家机构检查不完整、连续信源错误或邮件投递失败时才发送。告警使用计划时间作为 Resend idempotency key，避免同一次任务重复发信。
+`OPERATIONS_ALERT_EMAIL` 是只接收故障告警的管理员邮箱，同样作为 encrypted secret 保存。正常刷新不发送运维邮件；13F 刷新失败、8 家机构检查不完整、数据库异常或邮件投递失败时才发送。新闻、X、GDELT、RSS 或 DeepSeek 摘要失败只会静默降级，不发送运维告警。告警使用计划时间作为 Resend idempotency key，避免同一次任务重复发信。
 
 ## 第一次部署
 
@@ -69,7 +69,7 @@ Cache-Control: no-store
 - `publicSignalDelivery`：公开动态摘要的发送、失败数量和邮件配置状态。
 - `skipped: true, reason: "already_checked_today"`：香港自然日内已经完成过刷新，属于正常防重；前一晚的刷新不会阻止次日 08:00 检查。
 
-返回 HTTP 500、机构数量不是 8、任一机构 `status=error`、连续信源错误或邮件投递失败，都会让 Cron Event 记为失败。
+返回 HTTP 500、机构数量不是 8、任一机构 `status=error` 或邮件投递失败，都会让 Cron Event 记为失败。公开新闻源与摘要模型属于辅助信息，失败时保留状态供管理面板排查，但不把 Cron Event 标记为失败。
 
 ### `GET /api/status`
 
@@ -116,7 +116,7 @@ npx wrangler tail long-short-tracker
 1. 定时器立即失败且日志出现 522/无效 JSON：检查是否误改为通过自定义域名请求 Worker 自身；正式调度必须使用内部处理器。
 2. HTTP 500：查看 `long-short-tracker` Worker Logs，重点检查 D1、SEC、Resend 环境变量。
 3. 机构检查不足 8 家：检查 SEC EDGAR 返回与对应 CIK。
-4. 连续信源错误：检查官方 RSS、X API（若配置）和主流媒体信源；单个备用源暂时失败不等同于整套信源失败。
+4. 新闻信源降级：检查官方 RSS、X API（若配置）和主流媒体信源。此类问题不会触发运维邮件；只需在需要恢复完整新闻覆盖时排查。
 5. 邮件失败：在管理面板和 `alert_deliveries` 统计中查看错误，核对 Resend 域名、API key 和发件地址。
 
 ## 修改执行时间

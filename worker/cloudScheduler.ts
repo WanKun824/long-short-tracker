@@ -111,23 +111,16 @@ function auditRefreshPayload(payload: unknown): RefreshAudit {
   const pendingAlertRetry = asRecord(root.pendingAlertRetry);
   const publicSignals = asRecord(root.publicSignals);
   const publicSignalDelivery = asRecord(root.publicSignalDelivery);
-  const signalErrors = Array.isArray(publicSignals?.errors)
-    ? publicSignals.errors.map(asRecord).filter((item): item is JsonRecord => Boolean(item))
-    : [];
-  const consecutiveSourceErrors = signalErrors.filter((item) => asFiniteNumber(item.errorStreak) >= 2);
   const deliveryFailures = results.reduce((sum, item) => sum + asFiniteNumber(item.failed), 0)
     + asFiniteNumber(pendingAlertRetry?.failed)
     + asFiniteNumber(publicSignalDelivery?.failed);
   const emailNotConfigured = [pendingAlertRetry, publicSignalDelivery, ...results]
     .some((item) => item?.emailStatus === "not_configured");
-  const deepSeekFailed = publicSignalDelivery?.summaryStatus === "error";
 
   const failures: string[] = [];
   if (fundErrors.length) failures.push(`${fundErrors.length} 家机构刷新失败`);
-  if (consecutiveSourceErrors.length) failures.push(`${consecutiveSourceErrors.length} 家机构出现连续信源错误`);
   if (deliveryFailures) failures.push(`${deliveryFailures} 封邮件投递失败`);
   if (emailNotConfigured) failures.push("邮件服务未配置");
-  if (deepSeekFailed) failures.push("DeepSeek 新闻摘要失败（已回退为原始标题邮件）");
   if (failures.length) throw new RefreshAuditError(failures.join("；"));
 
   const updatedFunds = results

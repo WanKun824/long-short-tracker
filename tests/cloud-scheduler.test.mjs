@@ -58,15 +58,30 @@ test("cloud scheduler fails an incomplete fund audit", async () => {
   );
 });
 
-test("cloud scheduler fails on consecutive source or email delivery errors", async () => {
+test("cloud scheduler tolerates optional news-source and summary failures", async () => {
+  const audit = await runScheduledRefresh(Date.now(), async () => Response.json(successfulPayload({
+    publicSignals: { newCount: 0, errors: [{ fundId: "scion", sources: ["X API 403"], errorStreak: 13 }] },
+    publicSignalDelivery: {
+      sent: 1,
+      failed: 0,
+      emailStatus: "configured",
+      summaryStatus: "error",
+    },
+  })));
+
+  assert.equal(audit.fundChecks, 8);
+  assert.equal(audit.emailsSent, 3);
+});
+
+test("cloud scheduler still fails on email delivery errors", async () => {
   await assert.rejects(
     runScheduledRefresh(Date.now(), async () => Response.json(successfulPayload({
       publicSignals: { newCount: 0, errors: [{ fundId: "scion", sources: ["RSS 500"], errorStreak: 2 }] },
       publicSignalDelivery: { sent: 0, failed: 1, emailStatus: "configured" },
     }))),
     (error) => error instanceof RefreshAuditError
-      && /连续信源错误/.test(error.message)
-      && /邮件投递失败/.test(error.message),
+      && /邮件投递失败/.test(error.message)
+      && !/信源错误/.test(error.message),
   );
 });
 

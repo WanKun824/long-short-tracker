@@ -76,7 +76,7 @@ GDELT 只承担检索和发现，不自动成为可信来源。结果必须通�
 - 不得推断实时持仓、买卖、空头规模或投资意图；
 - 明确 13F 是延迟披露数据。
 
-程序会再次校验模型返回的 JSON，丢弃不存在的 `signalId`，限制文本和响应大小。DeepSeek 调用失败时，系统回退为原始标题邮件，同时把摘要失败列入 Cloudflare 运维告警；不会因此伪造或丢失原始来源。
+程序会再次校验模型返回的 JSON，丢弃不存在的 `signalId`，限制文本和响应大小。DeepSeek 调用失败时，系统回退为原始标题邮件；新闻源或摘要失败不会触发运维告警，也不会因此伪造或丢失原始来源。SEC 13F、数据库和真实邮件投递故障仍会告警。
 
 实现见 `app/lib/deepseekDigest.ts`、`app/lib/marketSignalsEmail.ts` 和 `app/lib/refreshHoldings.ts`。
 

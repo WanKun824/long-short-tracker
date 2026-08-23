@@ -50,9 +50,6 @@ export async function completeRefreshRun(context: RefreshRunContext, payload: un
   const pendingRetry = asRecord(root.pendingAlertRetry);
   const signalDelivery = asRecord(root.publicSignalDelivery);
   const publicSignals = asRecord(root.publicSignals);
-  const signalErrors = Array.isArray(publicSignals?.errors)
-    ? publicSignals.errors.map(asRecord).filter((item): item is JsonRecord => Boolean(item))
-    : [];
 
   const emailsSent = results.reduce((sum, item) => sum + number(item.sent), 0)
     + number(pendingRetry?.sent)
@@ -61,16 +58,12 @@ export async function completeRefreshRun(context: RefreshRunContext, payload: un
     + number(pendingRetry?.failed)
     + number(signalDelivery?.failed);
   const fundErrors = results.filter((item) => item.status === "error");
-  const consecutiveSignalErrors = signalErrors.filter((item) => number(item.errorStreak) >= 2);
   const emailNotConfigured = [pendingRetry, signalDelivery, ...results]
     .some((item) => item?.emailStatus === "not_configured");
-  const summaryFailed = signalDelivery?.summaryStatus === "error";
   const reasons = [
     fundErrors.length ? `${fundErrors.length} 家机构刷新失败` : "",
-    consecutiveSignalErrors.length ? `${consecutiveSignalErrors.length} 家机构出现连续信源错误` : "",
     emailsFailed ? `${emailsFailed} 封邮件投递失败` : "",
     emailNotConfigured ? "邮件服务未配置" : "",
-    summaryFailed ? "DeepSeek 新闻摘要失败" : "",
   ].filter(Boolean);
 
   const skipped = root.skipped === true;
