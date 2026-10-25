@@ -84,7 +84,7 @@ function formatDateTime(value: string | null) {
 }
 
 function formatDuration(value: number | null) {
-  if (value === null) return "运行中";
+  if (value === null) return "—";
   if (value < 1_000) return `${value} ms`;
   if (value < 60_000) return `${(value / 1_000).toFixed(1)} 秒`;
   return `${Math.floor(value / 60_000)}分 ${Math.round((value % 60_000) / 1_000)}秒`;
