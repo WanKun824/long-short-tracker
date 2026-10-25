@@ -8,6 +8,7 @@ export type ParsedGdeltArticle = {
   title: string;
   domain: string;
   seenDate: string;
+  description?: string;
 };
 
 function decodeXml(value: string) {
@@ -124,7 +125,7 @@ export function parseTrustedRss(xml: string, feed: TrustedMediaFeed): ParsedGdel
     const title = cleanSignalTitle(rssTag(block, "title"));
     const link = rssTag(block, "link");
     const published = new Date(rssTag(block, "pubDate") || rssTag(block, "date"));
-    if (!title || !link || Number.isNaN(published.getTime()) || published.getTime() < cutoff) return [];
+    if (!title || !link || Number.isNaN(published.getTime()) || published.getTime() < cutoff || published.getTime() > Date.now() + 3_600_000) return [];
     let url: URL;
     try {
       url = new URL(link);
@@ -141,6 +142,7 @@ export function parseTrustedRss(xml: string, feed: TrustedMediaFeed): ParsedGdel
       title,
       domain: url.hostname,
       seenDate: published.toISOString(),
+      description: (rssTag(block, "description") || rssTag(block, "summary")).slice(0, 2000),
     }];
   }).slice(0, 60);
 }

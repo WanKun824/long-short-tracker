@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const subscribers = sqliteTable(
   "subscribers",
@@ -102,3 +102,37 @@ export const publicSignals = sqliteTable(
     index("idx_public_signals_latest").on(table.fundId, table.publishedAt),
   ],
 );
+
+export const refreshLocks = sqliteTable("refresh_locks", {
+  name: text("name").primaryKey(),
+  owner: text("owner").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+});
+
+export const sourceHealth = sqliteTable("source_health", {
+  sourceId: text("source_id").primaryKey(),
+  name: text("name").notNull(),
+  status: text("status").notNull(),
+  checkedAt: text("checked_at").notNull(),
+  lastSuccessAt: text("last_success_at"),
+  latestArticleAt: text("latest_article_at"),
+  articleCount: integer("article_count").notNull().default(0),
+  error: text("error"),
+});
+
+export const emailOutbox = sqliteTable("email_outbox", {
+  subscriberId: integer("subscriber_id").notNull(),
+  fundId: text("fund_id").notNull(),
+  accession: text("accession").notNull(),
+  subject: text("subject").notNull(),
+  html: text("html").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [primaryKey({ columns: [table.subscriberId, table.fundId, table.accession] })]);
+
+export const deliveryEvents = sqliteTable("delivery_events", {
+  eventId: text("event_id").primaryKey(),
+  providerId: text("provider_id").notNull(),
+  type: text("type").notNull(),
+  occurredAt: text("occurred_at").notNull(),
+  recordedAt: text("recorded_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_delivery_events_provider").on(table.providerId, table.occurredAt)]);

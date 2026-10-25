@@ -1,5 +1,7 @@
 # 新闻获取与邮件摘要规则
 
+当前接口权限、信源健康状态、重试和送达回执配置见 [Operations](operations.md)。新闻源故障继续保持静默降级。
+
 本文说明 LONG / SHORT TRACKER 如何获取公开新闻、筛选资料、调用 DeepSeek，以及何时发送邮件。系统不把新闻或模型输出当作持仓证据。
 
 ## 当前运行方式
@@ -18,7 +20,7 @@ Cloudflare Cron 每天 00:00 UTC（香港时间 08:00）在 Worker 内部直接�
 ### 直接 RSS
 
 - The New York Times · Business
-- The Wall Street Journal · Markets
+- WSJ Markets 旧 RSS 已停用；WSJ 仍保留在 GDELT 的媒体来源白名单中。
 - CNBC
 - Financial Times
 - The Economist

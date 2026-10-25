@@ -22,7 +22,6 @@ export const trustedMedia = [
 
 export const trustedMediaFeeds = [
   { domain: "nytimes.com", name: "The New York Times", url: "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml" },
-  { domain: "wsj.com", name: "The Wall Street Journal", url: "https://feeds.a.dj.com/rss/RSSMarketsMain.xml" },
   { domain: "cnbc.com", name: "CNBC", url: "https://www.cnbc.com/id/100003114/device/rss/rss.html" },
   { domain: "ft.com", name: "Financial Times", url: "https://www.ft.com/?format=rss" },
   { domain: "economist.com", name: "The Economist", url: "https://www.economist.com/finance-and-economics/rss.xml" },

@@ -1,12 +1,14 @@
 import { ensureDbSchema, getD1, getRuntimeEnv } from "../../db";
 import { funds, holdings as baselineHoldings, type FundProfile, type Holding } from "../data/funds";
 import { DELIVERY_CLAIM_SQL } from "./alertDelivery";
+import { deliverQueuedEmail, retryQueuedEmails } from "./emailOutbox";
+import { reconcileRecentDeliveryEvents } from "./deliveryTracking";
 import { buildAlertEmail, summarizeChanges, type HoldingChanges } from "./holdingChanges";
 import { summarizePublicSignals, type DeepSeekDigest } from "./deepseekDigest";
 import { buildMarketSignalsEmail, type SignalEmailSection } from "./marketSignalsEmail";
 import { officialSourcesForFund, refreshPublicSignals, type PublicSignal } from "./publicSignals";
-import { alreadyCheckedOnHongKongDate } from "./refreshSchedule";
-import { fetchSecHoldingRows, readBoundedText, SEC_PARSER_VERSION, secHeaders } from "./sec13f";
+import { alreadyCheckedOnHongKongDate, beforeDailyWindow } from "./refreshSchedule";
+import { fetchLatestSecFiling, fetchSecHoldingRows, SEC_PARSER_VERSION } from "./sec13f";
 
 type Filing = {
   accession: string;
@@ -33,38 +35,7 @@ type SubscriberRow = {
   created_at: string;
 };
 
-const REFRESH_CAPABILITY_VERSION = "sec-edgar-signals-deepseek-v6";
-function quarterLabel(reportDate: string) {
-  const [year, month] = reportDate.split("-").map(Number);
-  return `${year} Q${Math.ceil(month / 3)}`;
-}
-
-async function latestFiling(fund: FundProfile): Promise<Filing> {
-  const response = await fetch(`https://data.sec.gov/submissions/CIK${fund.cik}.json`, {
-    headers: secHeaders,
-  });
-  if (!response.ok) throw new Error(`SEC submissions ${response.status}`);
-  const text = await readBoundedText(response);
-  const payload = JSON.parse(text) as {
-    filings?: {
-      recent?: {
-        form?: string[];
-        accessionNumber?: string[];
-        reportDate?: string[];
-        filingDate?: string[];
-      };
-    };
-  };
-  const recent = payload.filings?.recent;
-  const index = recent?.form?.findIndex((form) => form === "13F-HR" || form === "13F-HR/A") ?? -1;
-  if (!recent || index < 0) throw new Error("SEC 未返回13F-HR记录");
-  const accession = recent.accessionNumber?.[index];
-  const reportDate = recent.reportDate?.[index];
-  const filedAt = recent.filingDate?.[index];
-  if (!accession || !reportDate || !filedAt) throw new Error("SEC 申报字段不完整");
-  return { accession: accession.replaceAll("-", ""), period: quarterLabel(reportDate), filedAt };
-}
-
+const REFRESH_CAPABILITY_VERSION = "sec-notices-source-health-v7";
 function safeJson<T>(value: string, fallback: T): T {
   try {
     return JSON.parse(value) as T;
@@ -118,9 +89,11 @@ async function sendAlerts(fund: FundProfile, filing: Filing, changes: HoldingCha
     try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
+        signal: AbortSignal.timeout(20_000),
         headers: {
           authorization: `Bearer ${runtime.RESEND_API_KEY}`,
           "content-type": "application/json",
+          "Idempotency-Key": `lst/${subscriber.id}/${fund.id}/${filing.accession}`,
         },
         body: JSON.stringify({
           from: runtime.ALERT_FROM_EMAIL,
@@ -232,11 +205,6 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
     const relevant = signals.filter((signal) => selected.has(signal.fundId));
     if (!relevant.length) continue;
 
-    const claim = await db.prepare(DELIVERY_CLAIM_SQL)
-      .bind(subscriber.id, "__signals__", accession)
-      .run();
-    if (Number(claim.meta.changes ?? 0) === 0) continue;
-
     const sections = funds.flatMap<SignalEmailSection>((fund) => {
       const fundSignals = relevant.filter((signal) => signal.fundId === fund.id);
       return fundSignals.length ? [{
@@ -256,39 +224,9 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
       } : null,
     });
 
-    let status = "failed";
-    let providerId: string | null = null;
-    let error: string | null = null;
-    try {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${runtime.RESEND_API_KEY}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          from: runtime.ALERT_FROM_EMAIL,
-          to: [subscriber.email],
-          subject: email.subject,
-          html: email.html,
-        }),
-      });
-      const responseText = await readBoundedText(response, 100_000);
-      const responseBody = responseText ? JSON.parse(responseText) as { id?: string; message?: string } : {};
-      if (!response.ok) throw new Error(responseBody.message ?? `邮件服务 ${response.status}`);
-      status = "sent";
-      providerId = responseBody.id ?? null;
-      sent += 1;
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message.slice(0, 500) : "公开动态邮件发送失败";
-      failed += 1;
-    }
-
-    await db.prepare(`UPDATE alert_deliveries
-      SET provider_id = ?, status = ?, error = ?, created_at = CURRENT_TIMESTAMP
-      WHERE subscriber_id = ? AND fund_id = '__signals__' AND accession = ?`)
-      .bind(providerId, status, error, subscriber.id, accession)
-      .run();
+    const delivery = await deliverQueuedEmail(subscriber, "__signals__", accession, email);
+    if (delivery === "sent") sent += 1;
+    if (delivery === "failed") failed += 1;
   }
 
   return {
@@ -301,7 +239,7 @@ async function sendPublicSignalDigests(signals: PublicSignal[], discoveredAt: st
   };
 }
 
-export async function refreshHoldings({ force = false }: { force?: boolean } = {}) {
+export async function refreshHoldings({ force = false, notify = true }: { force?: boolean; notify?: boolean } = {}) {
   await ensureDbSchema();
   const db = getD1();
   const [lastRefresh, capabilityVersion] = await Promise.all([
@@ -309,6 +247,9 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
     db.prepare("SELECT value FROM system_state WHERE key = 'refresh_capability_version'").first<{ value: string }>(),
   ]);
   const capabilityUpgradePending = capabilityVersion?.value !== REFRESH_CAPABILITY_VERSION;
+  if (!force && beforeDailyWindow()) {
+    return { skipped: true, reason: "before_daily_window", timeZone: "Asia/Hong_Kong" };
+  }
   if (!force && !capabilityUpgradePending && alreadyCheckedOnHongKongDate(lastRefresh?.value)) {
     return {
       skipped: true,
@@ -319,11 +260,18 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
   }
 
   const checkedAt = new Date().toISOString();
-  const pendingAlertRetry = await retryPendingAlerts();
+  const pendingAlertRetry = notify ? await retryPendingAlerts() : { sent: 0, failed: 0, emailStatus: "suppressed" };
+  const queuedRetry = notify ? await retryQueuedEmails() : { sent: 0, failed: 0 };
+  pendingAlertRetry.sent += queuedRetry.sent;
+  pendingAlertRetry.failed += queuedRetry.failed;
   const results: Array<Record<string, unknown>> = [];
   for (const fund of funds) {
     try {
-      const latest = await latestFiling(fund);
+      const latest = await fetchLatestSecFiling(fund.cik);
+      const reportingFund = { ...fund, cik: latest.reportingCik };
+      await db.prepare(`INSERT INTO system_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`)
+        .bind(`sec_filing_meta:${fund.id}`, JSON.stringify({ ...latest, checkedAt })).run();
       const previous = await db
         .prepare(`SELECT id, fund_id, accession, period, filed_at, data_json, change_json, checked_at
           FROM fund_snapshots WHERE fund_id = ? ORDER BY id DESC LIMIT 1`)
@@ -342,9 +290,10 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
 
         const previousRows = safeJson<Holding[]>(previous.data_json, []);
         const officialRows = await fetchSecHoldingRows(
-          fund,
+          reportingFund,
           latest.accession,
           [...previousRows, ...baselineHoldings[fund.id]],
+          latest.managerNumbers,
         );
         await db.prepare("UPDATE fund_snapshots SET data_json = ?, checked_at = ? WHERE id = ?")
           .bind(JSON.stringify(officialRows), checkedAt, previous.id)
@@ -359,9 +308,10 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
 
       const previousRows = previous ? safeJson<Holding[]>(previous.data_json, []) : [];
       const current = await fetchSecHoldingRows(
-        fund,
+        reportingFund,
         latest.accession,
         [...previousRows, ...baselineHoldings[fund.id]],
+        latest.managerNumbers,
       );
       const changes = previous ? summarizeChanges(previousRows, current) : emptyChanges();
       await db
@@ -382,7 +332,7 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`)
         .bind(`sec_source_accession:${fund.id}`, `${SEC_PARSER_VERSION}:${latest.accession}`)
         .run();
-      const delivery = previous
+      const delivery = previous && notify
         ? await sendAlerts(fund, latest, changes, checkedAt)
         : { sent: 0, failed: 0, emailStatus: "baseline" as const };
       results.push({ fundId: fund.id, status: previous ? "updated" : "seeded", accession: latest.accession, source: "sec_edgar", ...delivery });
@@ -392,9 +342,12 @@ export async function refreshHoldings({ force = false }: { force?: boolean } = {
   }
 
   const publicSignals = await refreshPublicSignals(checkedAt);
-  const publicSignalDelivery = await sendPublicSignalDigests(publicSignals.newSignals, checkedAt);
+  const publicSignalDelivery = notify
+    ? await sendPublicSignalDigests(publicSignals.newSignals, checkedAt)
+    : { sent: 0, failed: 0, emailStatus: "suppressed", summaryStatus: "not_needed" };
+  await reconcileRecentDeliveryEvents(checkedAt);
 
-  await db.batch([
+  if (!results.some((item) => item.status === "error")) await db.batch([
     db.prepare(`INSERT INTO system_state (key, value, updated_at)
       VALUES ('last_refresh', ?, CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`)

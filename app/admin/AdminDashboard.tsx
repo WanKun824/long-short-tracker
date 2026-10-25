@@ -23,6 +23,7 @@ type Delivery = {
   providerId: string | null;
   error: string | null;
   createdAt: string;
+  deliveryEvent: string | null;
 };
 
 type PublicSignal = {
@@ -59,7 +60,9 @@ type DashboardData = {
   subscribers: { total: number; active: number; unsubscribed: number; today: number; last7Days: number };
   dailySignups: Array<{ day: string; signups: number }>;
   dataHistory: { snapshotCount: number; fundCount: number; snapshots: Snapshot[] };
-  deliveries: { sent: number; failed: number; sending: number; recent: Delivery[] };
+  deliveries: { sent: number; failed: number; sending: number; delivered: number; bounced: number; complained: number; recent: Delivery[] };
+  sourceHealth: Array<{ source_id: string; name: string; status: string; checked_at: string; last_success_at: string | null; latest_article_at: string | null; article_count: number; error: string | null }>;
+  webhookConfigured: boolean;
   publicSignals: { count: number; fundCount: number; recent: PublicSignal[] };
   runHistory: { total: number; succeeded: number; skipped: number; failed: number; running: number; recent: RefreshRun[] };
 };
@@ -88,7 +91,12 @@ function formatDuration(value: number | null) {
 }
 
 function runStatusLabel(status: string) {
-  return ({ succeeded: "成功", skipped: "跳过", failed: "失败", running: "运行中" })[status] ?? status;
+  return ({ succeeded: "成功", skipped: "跳过", failed: "失败", running: "运行中", timed_out: "已超时" })[status] ?? status;
+}
+
+function sourceStatusLabel(status: string) {
+  const labels: Record<string, string> = { ok: "可用", empty: "无有效内容", stale: "内容过期", error: "暂不可用", disabled: "已停用" };
+  return labels[status] ?? status;
 }
 
 function runTriggerLabel(trigger: string) {
@@ -110,6 +118,7 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,6 +140,18 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  const refreshNow = async () => {
+    setRefreshing(true);
+    setError("");
+    try {
+      const response = await fetch("/api/refresh", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "刷新失败");
+      await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "刷新失败"); }
+    finally { setRefreshing(false); }
+  };
+
   const dailySignups = useMemo(() => [...(data?.dailySignups ?? [])].reverse(), [data]);
   const maxSignups = Math.max(...dailySignups.map((row) => row.signups), 1);
 
@@ -151,7 +172,8 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
           <h1>管理面板</h1>
           <p>订阅、13F快照、定时任务与邮件投递的运行数据。</p>
         </div>
-        <button onClick={() => void load()} disabled={loading}>{loading ? "刷新中" : "刷新数据"}</button>
+        <button onClick={() => void load()} disabled={loading}>{loading ? "刷新中" : "刷新面板"}</button>
+        <button onClick={() => void refreshNow()} disabled={refreshing}>{refreshing ? "正在检查" : "检查数据更新"}</button>
       </section>
 
       {error && <div className={styles.error}>{error}</div>}
@@ -170,7 +192,7 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
             <article><span>活跃订阅</span><strong>{data.subscribers.active}</strong><small>累计 {data.subscribers.total}</small></article>
             <article><span>近7日新增</span><strong>{data.subscribers.last7Days}</strong><small>今日 {data.subscribers.today}</small></article>
             <article><span>历史快照</span><strong>{data.dataHistory.snapshotCount}</strong><small>{data.dataHistory.fundCount} 家机构</small></article>
-            <article><span>邮件投递</span><strong>{data.deliveries.sent}</strong><small>失败 {data.deliveries.failed}</small></article>
+            <article><span>邮件已提交</span><strong>{data.deliveries.sent}</strong><small>确认送达 {data.deliveries.delivered} · 退信 {data.deliveries.bounced}</small></article>
             <article><span>公开动态</span><strong>{data.publicSignals.count}</strong><small>{data.publicSignals.fundCount} 家机构</small></article>
           </section>
 
@@ -224,10 +246,12 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
             <article className={styles.panel}>
               <div className={styles.panelHead}><div><span>DELIVERY HEALTH</span><h2>邮件投递状态</h2></div></div>
               <div className={styles.deliverySummary}>
-                <div><span>成功</span><strong>{data.deliveries.sent}</strong></div>
+                <div><span>Resend 已接受</span><strong>{data.deliveries.sent}</strong></div>
                 <div><span>发送中</span><strong>{data.deliveries.sending}</strong></div>
                 <div><span>失败</span><strong>{data.deliveries.failed}</strong></div>
               </div>
+              <p>确认送达 {data.deliveries.delivered} · 退信 {data.deliveries.bounced} · 投诉 {data.deliveries.complained}</p>
+              <p>{data.webhookConfigured ? "实时回执已配置" : "每天查询 Resend 投递状态；实时回执可另行配置。"}</p>
               {!data.deliveries.recent.length && <div className={styles.empty}>尚无邮件投递记录</div>}
             </article>
           </section>
@@ -246,6 +270,17 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
                 ))}</tbody>
               </table>
             </div>
+          </section>
+
+          <section className={styles.tablePanel}>
+            <div className={styles.panelHead}><div><span>SOURCE HEALTH</span><h2>信源状态</h2></div><b>新闻失败静默降级，不发送告警邮件</b></div>
+            <div className={styles.tableScroll}><table>
+              <thead><tr><th>信源</th><th>状态</th><th>最近检查</th><th>最近成功</th><th>最新文章</th><th>有效条数</th><th>说明</th></tr></thead>
+              <tbody>{data.sourceHealth.map((source) => <tr key={source.source_id}>
+                <td>{source.name}</td><td>{sourceStatusLabel(source.status)}</td>
+                <td>{formatDateTime(source.checked_at)}</td><td>{formatDateTime(source.last_success_at)}</td><td>{formatDateTime(source.latest_article_at)}</td><td>{source.article_count}</td><td>{source.error ?? "—"}</td>
+              </tr>)}</tbody>
+            </table></div>
           </section>
 
           <section className={styles.tablePanel}>
@@ -271,7 +306,7 @@ export function AdminDashboard({ viewerEmail }: { viewerEmail: string }) {
                 <tbody>{data.deliveries.recent.map((delivery, index) => (
                   <tr key={`${delivery.fundId}-${delivery.accession}-${index}`}>
                     <td>{formatDateTime(delivery.createdAt)}</td><td>{delivery.fundName}</td>
-                    <td><span className={`${styles.deliveryBadge} ${styles[`delivery_${delivery.status}`] ?? ""}`}>{delivery.status}</span></td>
+                    <td><span className={`${styles.deliveryBadge} ${styles[`delivery_${delivery.status}`] ?? ""}`}>{delivery.deliveryEvent ?? (delivery.status === "sent" ? "已提交 · 无送达回执" : delivery.status)}</span></td>
                     <td><code>{delivery.providerId ?? "—"}</code></td><td>{delivery.error ?? "—"}</td>
                   </tr>
                 ))}</tbody>

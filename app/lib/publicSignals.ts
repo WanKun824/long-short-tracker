@@ -2,6 +2,7 @@ import { ensureDbSchema, getD1, getRuntimeEnv } from "../../db";
 import { funds, type FundProfile } from "../data/funds";
 import { researchSources, trustedMedia, trustedMediaFeeds, type ResearchSourceProfile } from "../data/researchSources";
 import { parseGdeltArticles, parseTrustedRss, parseXPosts, sourceForDomain, type ParsedGdeltArticle } from "./publicSignalParsers";
+import { recordSourceHealth, sourceInCooldown } from "./sourceHealth";
 
 export type PublicSignal = {
   id: string;
@@ -57,12 +58,22 @@ async function readBoundedJson(response: Response, maxBytes: number) {
   }
 }
 
-async function fetchTrustedMediaFeeds() {
+async function fetchTrustedMediaFeeds(checkedAt: string) {
   const results = await Promise.allSettled(trustedMediaFeeds.map(async (feed) => {
-    const response = await fetch(feed.url, { headers: { accept: "application/rss+xml, application/xml, text/xml" } });
+    try {
+    const response = await fetch(feed.url, { headers: { accept: "application/rss+xml, application/xml, text/xml" }, signal: AbortSignal.timeout(12_000) });
     if (!response.ok) throw new Error(`${feed.name} RSS ${response.status}`);
     const xml = await readBoundedResponse(response, MAX_GDELT_BYTES);
-    return parseTrustedRss(xml, feed);
+    const articles = parseTrustedRss(xml, feed);
+    const dates = [...xml.matchAll(/<pubDate>([\s\S]*?)<\/pubDate>/gi)].map((match) => Date.parse(match[1])).filter(Number.isFinite);
+    const latest = dates.length ? new Date(Math.max(...dates)).toISOString() : null;
+    const status = articles.length ? "ok" : latest && Date.parse(latest) < Date.now() - 8 * 86_400_000 ? "stale" : "empty";
+    await recordSourceHealth(`rss:${feed.domain}`, feed.name, status, checkedAt, articles, status === "stale" ? "Feed is no longer publishing recent articles" : null, latest);
+    return articles;
+    } catch (cause) {
+      await recordSourceHealth(`rss:${feed.domain}`, feed.name, "error", checkedAt, [], cause instanceof Error ? cause.message : "RSS fetch failed");
+      throw cause;
+    }
   }));
   const articles = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
   const failures = results.flatMap((result) => result.status === "rejected"
@@ -95,7 +106,7 @@ async function fetchGdeltCorpus() {
   url.searchParams.set("sort", "datedesc");
   url.searchParams.set("timespan", `${SIGNAL_WINDOW_DAYS}d`);
 
-  const response = await fetch(url, { headers: { accept: "application/json" } });
+  const response = await fetch(url, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(12_000) });
   if (!response.ok) throw new Error(`GDELT ${response.status}`);
   const payload = await readBoundedJson(response, MAX_GDELT_BYTES);
   return parseGdeltArticles(payload, {
@@ -107,7 +118,7 @@ async function fetchGdeltCorpus() {
 
 function mediaSignalsForProfile(profile: ResearchSourceProfile, articles: ParsedGdeltArticle[]) {
   const relevant = articles.filter((article) => {
-    const title = article.title.toLowerCase();
+    const title = `${article.title} ${article.description ?? ""}`.toLowerCase();
     return profile.searchTerms.some((term) => title.includes(term.toLowerCase()));
   });
   return relevant.slice(0, 8).map((article) => {
@@ -131,6 +142,7 @@ async function fetchXSignals(profile: ResearchSourceProfile, bearerToken: string
   url.searchParams.set("max_results", "10");
   const response = await fetch(url, {
     headers: { authorization: `Bearer ${bearerToken}`, accept: "application/json" },
+    signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) throw new Error(`X API ${response.status}`);
   const payload = await readBoundedJson(response, 1_000_000);
@@ -141,6 +153,7 @@ async function fetchSources(
   profile: ResearchSourceProfile,
   mediaCorpus: ParsedGdeltArticle[] | null,
   mediaError: string | null,
+  checkedAt: string,
 ): Promise<SourceFetchResult> {
   const runtime = getRuntimeEnv();
   const signals: SourceFetchResult["signals"] = [];
@@ -156,11 +169,15 @@ async function fetchSources(
   }
 
   if (profile.officialXHandle && runtime.X_BEARER_TOKEN) {
+    if (await sourceInCooldown(`x:${profile.officialXHandle}`)) return { signals, errors, successfulSources, xStatus: "error" };
     try {
-      signals.push(...await fetchXSignals(profile, runtime.X_BEARER_TOKEN));
+      const posts = await fetchXSignals(profile, runtime.X_BEARER_TOKEN);
+      signals.push(...posts);
+      await recordSourceHealth(`x:${profile.officialXHandle}`, `@${profile.officialXHandle}`, "ok", checkedAt, posts);
       successfulSources += 1;
       xStatus = "checked";
     } catch (cause) {
+      await recordSourceHealth(`x:${profile.officialXHandle}`, `@${profile.officialXHandle}`, "error", checkedAt, [], cause instanceof Error ? cause.message : "X fetch failed");
       errors.push(cause instanceof Error ? cause.message : "X读取失败");
       xStatus = "error";
     }
@@ -227,9 +244,11 @@ export async function refreshPublicSignals(checkedAt: string) {
   await ensureDbSchema();
   let gdeltCorpus: ParsedGdeltArticle[] | null = null;
   let gdeltError: string | null = null;
-  const [gdeltResult, directFeedResult] = await Promise.allSettled([fetchGdeltCorpus(), fetchTrustedMediaFeeds()]);
+  await recordSourceHealth("rss:wsj.com", "The Wall Street Journal", "disabled", checkedAt, [], "Old Markets RSS stopped updating; WSJ remains in the media allowlist");
+  const [gdeltResult, directFeedResult] = await Promise.allSettled([fetchGdeltCorpus(), fetchTrustedMediaFeeds(checkedAt)]);
   if (gdeltResult.status === "fulfilled") gdeltCorpus = gdeltResult.value;
   else gdeltError = gdeltResult.reason instanceof Error ? gdeltResult.reason.message : "GDELT读取失败";
+  await recordSourceHealth("gdelt", "GDELT", gdeltCorpus !== null ? "ok" : "error", checkedAt, gdeltCorpus ?? [], gdeltError);
 
   const directFeeds = directFeedResult.status === "fulfilled"
     ? directFeedResult.value
@@ -242,7 +261,7 @@ export async function refreshPublicSignals(checkedAt: string) {
     : [gdeltError, ...directFeeds.failures].filter(Boolean).join("; ") || "财经信源读取失败";
   const fetched = await Promise.all(researchSources.map(async (profile) => ({
     profile,
-    result: await fetchSources(profile, mediaAvailable ? [...uniqueMedia.values()] : null, mediaError),
+    result: await fetchSources(profile, mediaAvailable ? [...uniqueMedia.values()] : null, mediaError, checkedAt),
   })));
   const newSignals: PublicSignal[] = [];
   const errors: SignalRefreshError[] = [];

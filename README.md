@@ -2,7 +2,7 @@
 
 An editorial 13F research dashboard for following the disclosed U.S. equity portfolios of selected institutional investors.
 
-[Live site](https://vincenvan.cc/)
+[Live site](https://lst.vincenvan.cc/) · [Operations guide](docs/operations.md)
 
 ## Coverage
 

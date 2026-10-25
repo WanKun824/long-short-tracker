@@ -17,3 +17,7 @@ export function alreadyCheckedOnHongKongDate(lastRefresh: string | null | undefi
   const currentDate = hongKongDateKey(now);
   return Boolean(lastDate && currentDate && lastDate === currentDate);
 }
+
+export function beforeDailyWindow(now = Date.now()) {
+  return new Date(now + HONG_KONG_OFFSET_MS).getUTCHours() < 8;
+}

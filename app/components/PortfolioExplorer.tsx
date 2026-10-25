@@ -14,6 +14,8 @@ type SnapshotMetadata = {
   accession: string;
   filedAt: string;
   checkedAt: string;
+  reportingCik?: string | null;
+  sourceUrl?: string | null;
 };
 type DynamicPayload = {
   holdings?: Partial<Record<FundProfile["id"], Holding[]>>;
@@ -64,10 +66,10 @@ function formatCheckedAt(value: string | null) {
   }).format(date);
 }
 
-function filingSource(fund: FundProfile, accession: string) {
+function filingSource(fund: FundProfile, accession: string, reportingCik?: string | null) {
   const compact = accession.replace(/\D/gu, "");
   if (compact.length !== 18) return fund.filingSource;
-  const cik = fund.cik.replace(/^0+/u, "") || "0";
+  const cik = (/^\d{1,10}$/.test(reportingCik ?? "") ? reportingCik! : fund.cik).replace(/^0+/u, "") || "0";
   const dashed = `${compact.slice(0, 10)}-${compact.slice(10, 12)}-${compact.slice(12)}`;
   return `https://www.sec.gov/Archives/edgar/data/${cik}/${compact}/${dashed}-index.html`;
 }
@@ -340,7 +342,7 @@ export function PortfolioExplorer() {
       ...fund,
       period: snapshot?.period ?? fund.period,
       filingDate: snapshot?.filedAt ?? fund.filingDate,
-      filingSource: snapshot ? filingSource(fund, snapshot.accession) : fund.filingSource,
+      filingSource: snapshot ? snapshot.sourceUrl ?? filingSource(fund, snapshot.accession, snapshot.reportingCik) : fund.filingSource,
       valueBn: rows.reduce((sum, row) => sum + row.valueK, 0) / 1_000_000,
       holdingCount: rows.length,
       top5: rows.slice(0, 5).reduce((sum, row) => sum + row.weight, 0),

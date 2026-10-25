@@ -1,5 +1,7 @@
 # 云端定时刷新运维手册
 
+当前鉴权、08:00 检查窗口、并发锁、超时恢复和邮件回执配置见 [Operations](operations.md)。外部 POST 刷新现在需要管理员会话或有效的 `x-refresh-secret`，不能匿名调用。
+
 LONG / SHORT TRACKER 的定时任务运行在 Cloudflare Workers Cron Triggers，不依赖个人电脑。电脑关机、Codex 未打开或浏览器未登录，都不会影响计划执行。
 
 ## 当前架构

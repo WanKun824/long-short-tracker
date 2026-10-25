@@ -1,5 +1,6 @@
 import { ensureDbSchema, getD1, getRuntimeEnv } from "../../../db";
 import { funds } from "../../data/funds";
+import type { SourceHealth } from "../../lib/sourceHealth";
 
 type CountRow = { count: number };
 type RefreshRow = { value: string; updated_at: string };
@@ -18,6 +19,8 @@ export async function GET() {
       db.prepare("SELECT COUNT(*) AS count, MAX(discovered_at) AS latest FROM public_signals").first<SignalRow>(),
     ]);
     const snapshotFunds = Number(snapshotRow?.count ?? 0);
+    const health = await db.prepare("SELECT * FROM source_health").all<SourceHealth>();
+    const recentSource = (row: SourceHealth) => row.status === "ok" && Date.now() - Date.parse(row.checked_at) < 36 * 3_600_000;
 
     return Response.json({
       dataReady: snapshotFunds > 0,
@@ -28,10 +31,12 @@ export async function GET() {
       refreshIntervalHours: 24,
       refreshSchedule: "daily_08_hong_kong",
       refreshGuard: "hong_kong_calendar_day",
-      publicSignalsReady: true,
+      publicSignalsReady: health.results.some((row) => (row.source_id.startsWith("rss:") || row.source_id === "gdelt") && recentSource(row)),
       publicSignalCount: Number(signalRow?.count ?? 0),
       lastPublicSignalsAt: signalRow?.latest ?? null,
-      officialXReady: Boolean(runtime.X_BEARER_TOKEN),
+      officialXConfigured: Boolean(runtime.X_BEARER_TOKEN),
+      officialXReady: health.results.some((row) => row.source_id.startsWith("x:") && recentSource(row)),
+      lastNewsCheckAt: health.results.filter((row) => row.source_id.startsWith("rss:")).map((row) => row.checked_at).sort().at(-1) ?? null,
     }, { headers: { "cache-control": "no-store" } });
   } catch {
     return Response.json({
@@ -46,7 +51,8 @@ export async function GET() {
       publicSignalsReady: false,
       publicSignalCount: 0,
       lastPublicSignalsAt: null,
-      officialXReady: Boolean(runtime.X_BEARER_TOKEN),
+      officialXConfigured: Boolean(runtime.X_BEARER_TOKEN),
+      officialXReady: false,
     }, { headers: { "cache-control": "no-store" } });
   }
 }

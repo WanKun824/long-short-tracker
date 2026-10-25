@@ -14,6 +14,7 @@ type RuntimeEnv = {
   DEEPSEEK_API_KEY?: string;
   DEEPSEEK_BASE_URL?: string;
   DEEPSEEK_MODEL?: string;
+  RESEND_WEBHOOK_SECRET?: string;
 };
 
 export function getRuntimeEnv() {
@@ -33,6 +34,24 @@ export function getDb() {
 export async function ensureDbSchema() {
   const db = getD1();
   await db.batch([
+    db.prepare(`CREATE TABLE IF NOT EXISTS refresh_locks (
+      name TEXT PRIMARY KEY, owner TEXT NOT NULL, expires_at INTEGER NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS source_health (
+      source_id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL,
+      checked_at TEXT NOT NULL, last_success_at TEXT, latest_article_at TEXT,
+      article_count INTEGER NOT NULL DEFAULT 0, error TEXT
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS email_outbox (
+      subscriber_id INTEGER NOT NULL, fund_id TEXT NOT NULL, accession TEXT NOT NULL,
+      subject TEXT NOT NULL, html TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (subscriber_id, fund_id, accession)
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS delivery_events (
+      event_id TEXT PRIMARY KEY, provider_id TEXT NOT NULL, type TEXT NOT NULL,
+      occurred_at TEXT NOT NULL, recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_delivery_events_provider ON delivery_events(provider_id, occurred_at)"),
     db.prepare(`CREATE TABLE IF NOT EXISTS subscribers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT NOT NULL,

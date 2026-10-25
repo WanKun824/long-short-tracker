@@ -1,6 +1,8 @@
 import { ensureDbSchema, getD1, getRuntimeEnv } from "../../../../db";
 import { funds } from "../../../data/funds";
 import { isAdminRequest } from "../../../lib/adminAccess";
+import { expireStaleRefreshRuns } from "../../../lib/refreshLock";
+import type { SourceHealth } from "../../../lib/sourceHealth";
 
 type SubscriberTotals = {
   total: number;
@@ -29,6 +31,7 @@ type AlertRow = {
   provider_id: string | null;
   error: string | null;
   created_at: string;
+  delivery_event: string | null;
 };
 type RefreshRow = { value: string; updated_at: string };
 type RefreshRunTotalRow = { status: string; count: number };
@@ -94,6 +97,13 @@ export async function GET(request: Request) {
   try {
     await ensureDbSchema();
     const db = getD1();
+    await expireStaleRefreshRuns(db);
+    const health = await db.prepare("SELECT * FROM source_health ORDER BY source_id").all<SourceHealth>();
+    const eventTotals = await db.prepare(`SELECT
+      COUNT(DISTINCT CASE WHEN type IN ('email.delivered','email.opened','email.clicked') THEN provider_id END) AS delivered,
+      COUNT(DISTINCT CASE WHEN type = 'email.bounced' THEN provider_id END) AS bounced,
+      COUNT(DISTINCT CASE WHEN type = 'email.complained' THEN provider_id END) AS complained
+      FROM delivery_events`).first<{ delivered: number; bounced: number; complained: number }>();
     const [subscriberTotals, dailySignups, snapshotTotals, snapshots, alertTotals, alerts, lastRefresh, publicSignalTotals, publicSignals, refreshRunTotals, refreshRuns] = await Promise.all([
       db.prepare(`SELECT
         COUNT(*) AS total,
@@ -117,9 +127,10 @@ export async function GET(request: Request) {
       db.prepare(`SELECT status, COUNT(*) AS count
         FROM alert_deliveries
         GROUP BY status`).all<AlertTotalRow>(),
-      db.prepare(`SELECT fund_id, accession, status, provider_id, error, created_at
-        FROM alert_deliveries
-        ORDER BY id DESC
+      db.prepare(`SELECT d.fund_id, d.accession, d.status, d.provider_id, d.error, d.created_at,
+          (SELECT e.type FROM delivery_events e WHERE e.provider_id = d.provider_id ORDER BY datetime(e.occurred_at) DESC LIMIT 1) AS delivery_event
+        FROM alert_deliveries d
+        ORDER BY d.id DESC
         LIMIT 50`).all<AlertRow>(),
       db.prepare("SELECT value, updated_at FROM system_state WHERE key = 'last_refresh'").first<RefreshRow>(),
       db.prepare("SELECT COUNT(*) AS count, COUNT(DISTINCT fund_id) AS fund_count FROM public_signals").first<PublicSignalTotal>(),
@@ -142,6 +153,8 @@ export async function GET(request: Request) {
 
     return Response.json({
       generatedAt: new Date().toISOString(),
+      sourceHealth: health.results,
+      webhookConfigured: Boolean(runtime.RESEND_WEBHOOK_SECRET),
       lastRefreshAt: lastRefresh?.value ?? lastRefresh?.updated_at ?? null,
       subscribers: {
         total: number(subscriberTotals?.total),
@@ -166,6 +179,9 @@ export async function GET(request: Request) {
         })),
       },
       deliveries: {
+        delivered: number(eventTotals?.delivered),
+        bounced: number(eventTotals?.bounced),
+        complained: number(eventTotals?.complained),
         sent: number(deliveryTotals.sent),
         failed: number(deliveryTotals.failed),
         sending: number(deliveryTotals.sending),
@@ -177,6 +193,7 @@ export async function GET(request: Request) {
           providerId: row.provider_id,
           error: row.error,
           createdAt: row.created_at,
+          deliveryEvent: row.delivery_event,
         })),
       },
       publicSignals: {
@@ -197,7 +214,7 @@ export async function GET(request: Request) {
         total: refreshRunTotals.results.reduce((sum, row) => sum + number(row.count), 0),
         succeeded: number(runTotals.succeeded),
         skipped: number(runTotals.skipped),
-        failed: number(runTotals.failed),
+        failed: number(runTotals.failed) + number(runTotals.timed_out),
         running: number(runTotals.running),
         recent: refreshRuns.results.map((row) => ({
           id: row.id,

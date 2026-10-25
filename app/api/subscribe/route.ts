@@ -1,6 +1,6 @@
 import { ensureDbSchema, getD1, getRuntimeEnv } from "../../../db";
 import { funds, holdings as baselineHoldings, type FundProfile, type Holding } from "../../data/funds";
-import { DELIVERY_CLAIM_SQL } from "../../lib/alertDelivery";
+import { deliverQueuedEmail } from "../../lib/emailOutbox";
 import { latestPublicSignals } from "../../lib/publicSignals";
 import { buildSubscriptionStatusEmail, type SubscriptionFundStatus } from "../../lib/subscriptionStatusEmail";
 
@@ -68,29 +68,7 @@ async function currentFundStatuses(db: D1Database, selectedFundIds: FundProfile[
   });
 }
 
-async function completeSubscriptionDelivery(
-  db: D1Database,
-  subscriberId: number,
-  status: "sent" | "failed",
-  providerId: string | null,
-  error: string | null,
-) {
-  await db.prepare(`UPDATE alert_deliveries
-    SET provider_id = ?, status = ?, error = ?, created_at = CURRENT_TIMESTAMP
-    WHERE subscriber_id = ? AND fund_id = ? AND accession = ?`)
-    .bind(providerId, status, error, subscriberId, subscriptionDeliveryFundId, subscriptionDeliveryAccession)
-    .run();
-}
-
-async function sendCurrentStatusEmail({
-  db,
-  subscriber,
-  recipient,
-  selectedFundIds,
-  apiKey,
-  fromEmail,
-  publicSiteUrl,
-}: {
+async function sendCurrentStatusEmail({ db, subscriber, recipient, selectedFundIds, publicSiteUrl }: {
   db: D1Database;
   subscriber: SubscriberRow;
   recipient: string;
@@ -99,43 +77,12 @@ async function sendCurrentStatusEmail({
   fromEmail: string;
   publicSiteUrl: string;
 }) {
-  const claim = await db.prepare(DELIVERY_CLAIM_SQL)
-    .bind(subscriber.id, subscriptionDeliveryFundId, subscriptionDeliveryAccession)
-    .run();
-  if (Number(claim.meta.changes ?? 0) === 0) return "already_sent" as const;
-
   try {
     const currentFunds = await currentFundStatuses(db, selectedFundIds);
-    const email = buildSubscriptionStatusEmail({
-      funds: currentFunds,
-      publicSiteUrl,
-      unsubscribeToken: subscriber.unsubscribe_token,
-    });
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [recipient],
-        subject: email.subject,
-        html: email.html,
-      }),
-    });
-    const responseBody: unknown = await response.json().catch(() => ({}));
-    const providerId = isRecord(responseBody) && typeof responseBody.id === "string" ? responseBody.id : null;
-    const providerMessage = isRecord(responseBody) && typeof responseBody.message === "string"
-      ? responseBody.message
-      : null;
-    if (!response.ok) throw new Error(providerMessage ?? `邮件服务 ${response.status}`);
-    await completeSubscriptionDelivery(db, subscriber.id, "sent", providerId, null);
-    return "sent" as const;
+    const email = buildSubscriptionStatusEmail({ funds: currentFunds, publicSiteUrl, unsubscribeToken: subscriber.unsubscribe_token });
+    return await deliverQueuedEmail({ id: subscriber.id, email: recipient }, subscriptionDeliveryFundId, subscriptionDeliveryAccession, email);
   } catch (cause) {
-    const message = cause instanceof Error ? cause.message.slice(0, 500) : "当前状态邮件发送失败";
-    await completeSubscriptionDelivery(db, subscriber.id, "failed", null, message);
-    console.error(JSON.stringify({ message: "subscription status email failed", error: message }));
+    console.error(JSON.stringify({ event: "subscription_status_failed", error: String(cause) }));
     return "failed" as const;
   }
 }

@@ -20,6 +20,94 @@ type RawHolding = Omit<Holding, "valueK" | "weight"> & {
 
 export const SEC_PARSER_VERSION = "sec-values-v2";
 
+export type SecFiling = {
+  accession: string;
+  period: string;
+  reportDate: string;
+  filedAt: string;
+  reportingCik: string;
+  managerNumbers?: string[];
+  sourceUrl: string;
+};
+
+export function latestSubmission(payload: unknown) {
+  if (!isRecord(payload) || !isRecord(payload.filings) || !isRecord(payload.filings.recent)) {
+    throw new Error("SEC submissions are missing recent filings");
+  }
+  const recent = payload.filings.recent;
+  const forms = Array.isArray(recent.form) ? recent.form : [];
+  const filings = forms.flatMap((form, index) => {
+    if (typeof form !== "string" || !/^13F-(HR|NT)(\/A)?$/.test(form)) return [];
+    const accession = Array.isArray(recent.accessionNumber) ? recent.accessionNumber[index] : null;
+    const reportDate = Array.isArray(recent.reportDate) ? recent.reportDate[index] : null;
+    const filedAt = Array.isArray(recent.filingDate) ? recent.filingDate[index] : null;
+    if (typeof accession !== "string" || !/^\d{10}-\d{2}-\d{6}$/.test(accession)
+      || typeof reportDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(reportDate)
+      || typeof filedAt !== "string") return [];
+    return [{ form, accession: accession.replaceAll("-", ""), reportDate, filedAt, index }];
+  });
+  filings.sort((a, b) => b.reportDate.localeCompare(a.reportDate) || a.index - b.index);
+  if (!filings.length) throw new Error("SEC has no valid 13F filing");
+  return filings[0];
+}
+
+export function noticeManagerCiks(xml: string) {
+  return [...new Set([...xml.matchAll(/<otherManager(?:\s[^>]*)?>([\s\S]*?)<\/otherManager>/gi)]
+    .map((match) => tagValue(match[1], "cik"))
+    .filter((cik) => /^\d{1,10}$/.test(cik)).map((cik) => cik.padStart(10, "0")))];
+}
+
+export function includedManagerNumbers(xml: string, cik: string) {
+  return [...xml.matchAll(/<otherManager2(?:\s[^>]*)?>([\s\S]*?)<\/otherManager2>/gi)]
+    .filter((match) => tagValue(match[1], "cik").padStart(10, "0") === cik.padStart(10, "0"))
+    .map((match) => tagValue(match[1], "sequenceNumber")).filter((value) => /^\d+$/.test(value));
+}
+
+export async function fetchLatestSecFiling(
+  cik: string,
+  fetcher: typeof fetch = fetch,
+  targetCik = cik,
+  visited: string[] = [],
+): Promise<SecFiling> {
+  cik = cik.padStart(10, "0");
+  if (!/^\d{10}$/.test(cik) || visited.includes(cik) || visited.length >= 3) {
+    throw new Error("Invalid or circular SEC reporting-manager reference");
+  }
+  const response = await fetcher(`https://data.sec.gov/submissions/CIK${cik}.json`, {
+    headers: secHeaders, signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw new Error(`SEC submissions ${response.status}`);
+  const filing = latestSubmission(JSON.parse(await readBoundedText(response)));
+  const base = `https://www.sec.gov/Archives/edgar/data/${cik.replace(/^0+/, "")}/${filing.accession}`;
+  const cover = async () => {
+    const document = await fetcher(`${base}/primary_doc.xml`, {
+      headers: secHeaders, signal: AbortSignal.timeout(20_000),
+    });
+    if (!document.ok) throw new Error(`SEC cover page ${document.status}`);
+    return readBoundedText(document, 1_000_000);
+  };
+  if (filing.form.startsWith("13F-NT")) {
+    const managers = noticeManagerCiks(await cover());
+    if (managers.length !== 1) throw new Error("SEC notice requires review of its reporting managers");
+    const linked = await fetchLatestSecFiling(managers[0], fetcher, targetCik, [...visited, cik]);
+    if (linked.reportDate !== filing.reportDate) throw new Error("SEC notice and linked report periods do not match");
+    return linked;
+  }
+  const managerNumbers = cik !== targetCik.padStart(10, "0")
+    ? includedManagerNumbers(await cover(), targetCik)
+    : undefined;
+  if (managerNumbers && !managerNumbers.length) throw new Error("Linked SEC report does not include this manager");
+  return {
+    accession: filing.accession,
+    period: `${filing.reportDate.slice(0, 4)} Q${Math.ceil(Number(filing.reportDate.slice(5, 7)) / 3)}`,
+    reportDate: filing.reportDate,
+    filedAt: filing.filedAt,
+    reportingCik: cik,
+    managerNumbers,
+    sourceUrl: `${base}/xslForm13F_X02/primary_doc.xml`,
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -103,12 +191,13 @@ function valueDivisor(rows: RawHolding[], reference: Holding[]) {
   return median(legacyThousandScores) + 0.75 < median(dollarScores) ? 1 : 1_000;
 }
 
-export function parseInformationTableXml(xml: string, tickerReference: Holding[] = []): Holding[] {
+export function parseInformationTableXml(xml: string, tickerReference: Holding[] = [], managerNumbers?: string[]): Holding[] {
   const blocks = [...xml.matchAll(/<(?:(?:[A-Za-z0-9_-]+):)?infoTable(?:\s[^>]*)?>([\s\S]*?)<\/(?:(?:[A-Za-z0-9_-]+):)?infoTable\s*>/gi)];
   const aggregate = new Map<string, RawHolding>();
 
   for (const match of blocks) {
     const block = match[1];
+    if (managerNumbers && !tagValue(block, "otherManager").split(/[,\s]+/).some((value) => managerNumbers.includes(value))) continue;
     const issuer = tagValue(block, "nameOfIssuer") || "未知发行人";
     const titleClass = tagValue(block, "titleOfClass");
     const cusip = tagValue(block, "cusip");
@@ -178,10 +267,10 @@ function informationTableCandidates(items: FilingDirectoryItem[]) {
     .slice(0, 6);
 }
 
-export async function fetchSecHoldingRows(fund: FundProfile, accession: string, tickerReference: Holding[]) {
+export async function fetchSecHoldingRows(fund: FundProfile, accession: string, tickerReference: Holding[], managerNumbers?: string[]) {
   const cik = fund.cik.replace(/^0+/, "") || "0";
   const archiveBase = `https://www.sec.gov/Archives/edgar/data/${cik}/${accession}`;
-  const indexResponse = await fetch(`${archiveBase}/index.json`, { headers: secHeaders });
+  const indexResponse = await fetch(`${archiveBase}/index.json`, { headers: secHeaders, signal: AbortSignal.timeout(20_000) });
   if (!indexResponse.ok) throw new Error(`SEC filing index ${indexResponse.status}`);
   const indexText = await readBoundedText(indexResponse, 1_000_000);
   let indexPayload: unknown;
@@ -195,10 +284,10 @@ export async function fetchSecHoldingRows(fund: FundProfile, accession: string, 
   if (!candidates.length) throw new Error("SEC申报目录未找到information table XML");
 
   for (const candidate of candidates) {
-    const response = await fetch(`${archiveBase}/${encodeURIComponent(candidate.name)}`, { headers: secHeaders });
+    const response = await fetch(`${archiveBase}/${encodeURIComponent(candidate.name)}`, { headers: secHeaders, signal: AbortSignal.timeout(20_000) });
     if (!response.ok) continue;
     const xml = await readBoundedText(response);
-    const rows = parseInformationTableXml(xml, tickerReference);
+    const rows = parseInformationTableXml(xml, tickerReference, managerNumbers);
     if (rows.length) return rows;
   }
   throw new Error("SEC information table未返回有效持仓");
