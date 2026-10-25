@@ -21,8 +21,8 @@ export async function reconcileRecentDeliveryEvents(checkedAt: string) {
       const response = await fetch(`https://api.resend.com/emails/${encodeURIComponent(row.provider_id)}`, {
         headers: { authorization: `Bearer ${runtime.RESEND_API_KEY}` }, signal: AbortSignal.timeout(10_000),
       });
-      if (!response.ok) throw new Error(`Resend delivery status ${response.status}; full-access email key or webhook required`);
-      const body = JSON.parse(await readBoundedText(response, 100_000)) as { last_event?: string };
+      const body = JSON.parse(await readBoundedText(response, 100_000)) as { last_event?: string; message?: string };
+      if (!response.ok) throw new Error(`Resend delivery status ${response.status}: ${(body.message ?? "full-access email key or webhook required").slice(0, 300)}`);
       if (body.last_event && /^[a-z_]+$/.test(body.last_event)) {
         await db.prepare(`INSERT OR IGNORE INTO delivery_events (event_id, provider_id, type, occurred_at) VALUES (?, ?, ?, ?)`)
           .bind(`poll:${row.provider_id}:${body.last_event}`, row.provider_id, `email.${body.last_event}`, checkedAt).run();

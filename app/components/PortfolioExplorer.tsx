@@ -308,7 +308,6 @@ export function PortfolioExplorer() {
 
     const hydrate = async () => {
       try {
-        await fetch("/api/refresh", { method: "POST", headers: { "x-site-heartbeat": "1" } });
         const [response, statusResponse] = await Promise.all([
           fetch("/api/holdings", { cache: "no-store" }),
           fetch("/api/status", { cache: "no-store" }),
