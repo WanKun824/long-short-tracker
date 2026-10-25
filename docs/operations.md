@@ -1,8 +1,11 @@
 # Operations
 
-Production: https://lst.vincenvan.cc  
-Admin: https://lst.vincenvan.cc/admin  
-Worker: `long-short-tracker`  
+Production: https://lst.vincenvan.cc
+
+Admin: https://lst.vincenvan.cc/admin
+
+Worker: `long-short-tracker`
+
 Database: `long-short-tracker-db` (`0bf8d167-07e0-4b9e-b56b-57d62540d71a`)
 
 ## Daily refresh
